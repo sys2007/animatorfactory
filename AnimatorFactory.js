@@ -106,6 +106,8 @@ return /******/ (function(modules) { // webpackBootstrap
 "use strict";
 
 
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+
 var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
@@ -143,6 +145,7 @@ var AnimatorFactory = function () {
 	_createClass(AnimatorFactory, [{
 		key: 'initAnalysis',
 		value: function initAnalysis(json) {
+			console.log(ol.style.Fill);
 			json = json || this.json;
 			var schema = JSON.parse(json); // 预案JSON对象
 			this.duration = schema.totalTime * 1000;
@@ -179,6 +182,9 @@ var AnimatorFactory = function () {
 						/** 元素的第一帧，一般是上图 **/
 						if (x === element.delay * thatFps) {
 							_element.action = 'add';
+							if (element.style) {
+								_element.style = element.style;
+							}
 						}
 						/** 元素的最后帧，一般是下图 **/
 						if (x === element.runTime * thatFps - 1) {
@@ -307,6 +313,67 @@ var AnimatorFactory = function () {
 		}
 
 		/**
+  	* 添加当前步骤对象中的元素上图
+  	* options 参数1：当前步骤JSON对象，里面是元素数组
+  	*/
+
+	}, {
+		key: 'addStepFeatures',
+		value: function addStepFeatures(options) {
+			if (options) {
+				if (options['elements']) {
+					var elements = options['elements'];
+					elements.forEach(function (element) {
+						this._addStepFeature(element);
+					}.bind(this));
+				}
+			}
+		}
+
+		/**
+  	* 添加当前步骤对象中的一个元素上图
+  	* element 参数1：当前元素JSON对象
+  	*/
+
+	}, {
+		key: '_addStepFeature',
+		value: function _addStepFeature(element) {
+			if (!element) {
+				return;
+			}
+			// elementId elementType keyPoints1 style
+			var p = void 0;
+			var arrow = this.plot.plotDraw.createPlot(element.elementType);
+			arrow.setPoints(element.keyPoints1);
+			var arr = arrow.getCoordinates();
+			if (element.elementType === 'Polyline') {
+				p = this.map.addPolyline(arr.join(','), {
+					layerName: this.layer,
+					zoomToExtent: false
+				});
+			} else if (element.elementType === 'Point') {
+				p = this.map.addPoint(arr.join(','), {
+					layerName: this.layer,
+					zoomToExtent: false
+				});
+			} else if (element.elementType === 'PlotText') {} else {
+				p = this.map.addPolygon(arr.join(','), {
+					layerName: this.layer,
+					zoomToExtent: false
+				});
+			}
+			if (p) {
+				p.setId(element.elementId);
+				if (element.style) {
+					var style_ = this.setStyle(element.style);
+					if (style_) {
+						p.setStyle(style_);
+					}
+				}
+			}
+		}
+
+		/**
   	* 播放函数
   	* currentFps 参数1：当前帧数，从1开始
   	*/
@@ -320,6 +387,7 @@ var AnimatorFactory = function () {
     * .type 类型
     * .id 
     * .keyPoint 点对象 数组
+    * .style 
    */
 			if (!element) {
 				return;
@@ -360,10 +428,212 @@ var AnimatorFactory = function () {
 						p.setId(element.id);
 					}
 				}
+				if (element.style) {
+					var style_ = this.setStyle(element.style);
+					if (style_) {
+						if (p) {
+							p.setStyle(style_);
+						}
+					}
+				}
 				return;
 			}
 			if (p) {
 				p.getGeometry().setCoordinates(arr);
+			}
+		}
+
+		/**
+  	* 根据配置加载样式
+  	* options 参数1 stylec数组对象
+  	*/
+
+	}, {
+		key: 'setStyle',
+		value: function setStyle(options) {
+			var option = options && (typeof options === 'undefined' ? 'undefined' : _typeof(options)) === 'object' ? options : {};
+			var style = new ol.style.Style({});
+			if (option['fill'] && _typeof(option['fill']) === 'object') {
+				style.setFill(this._getFill(option['fill']));
+			}
+			if (option['image'] && _typeof(option['image']) === 'object') {
+				style.setImage(this._getImage(option['image']));
+			}
+			if (option['stroke'] && _typeof(option['stroke']) === 'object') {
+				style.setStroke(this._getStroke(option['stroke']));
+			}
+			if (option['text'] && _typeof(option['text']) === 'object') {
+				style.setText(this._getText(option['text']));
+			}
+			return style;
+		}
+
+		/**
+   * 获取填充颜色
+   * @param options
+   * @returns {ol.style.Fill}
+   * @private
+   */
+
+	}, {
+		key: '_getFill',
+		value: function _getFill(options) {
+			try {
+				options = options || {};
+				var fill = new ol.style.Fill({
+					color: options['fillColor'] ? options['fillColor'] : undefined
+				});
+				return fill;
+			} catch (error) {
+				console.log(error);
+			}
+		}
+
+		/**
+   * 获取线条样式
+   * @param options
+   * @returns {ol.style.Stroke}
+   * @private
+   */
+
+	}, {
+		key: '_getStroke',
+		value: function _getStroke(options) {
+			try {
+				options = options || {};
+				var stroke = new ol.style.Stroke({
+					color: options['strokeColor'] ? options['strokeColor'] : undefined,
+					lineCap: options['strokeLineCap'] && typeof options['strokeLineCap'] === 'string' ? options['strokeLineCap'] : 'round',
+					lineJoin: options['strokeLineJoin'] && typeof options['strokeLineJoin'] === 'string' ? options['strokeLineJoin'] : 'round',
+					lineDash: options['strokeLineDash'] ? options['strokeLineDash'] : undefined,
+					lineDashOffset: typeof options['strokeLineDashOffset'] === 'number' ? options['strokeLineDashOffset'] : '0',
+					miterLimit: typeof options['strokeMiterLimit'] === 'number' ? options['strokeMiterLimit'] : 10,
+					width: typeof options['strokeWidth'] === 'number' ? options['strokeWidth'] : undefined
+				});
+				return stroke;
+			} catch (error) {
+				console.log(error);
+			}
+		}
+
+		/**
+   * 获取样式文本
+   * @param options
+   * @returns {ol.style.Text}
+   * @private
+   */
+
+	}, {
+		key: '_getText',
+		value: function _getText(options) {
+			try {
+				var text = new ol.style.Text({
+					font: options['textFont'] && typeof options['textFont'] === 'string' ? options['textFont'] : '10px sans-serif',
+					offsetX: typeof options['textOffsetX'] === 'number' ? options['textOffsetX'] : 0,
+					offsetY: typeof options['textOffsetY'] === 'number' ? options['textOffsetY'] : 0,
+					scale: typeof options['textScale'] === 'number' ? options['textScale'] : undefined,
+					rotation: typeof options['textRotation'] === 'number' ? options['textRotation'] : 0,
+					text: options['text'] && typeof options['text'] === 'string' ? options['text'] : undefined,
+					textAlign: options['textAlign'] && typeof options['textAlign'] === 'string' ? options['textAlign'] : 'start',
+					textBaseline: options['textBaseline'] && typeof options['textBaseline'] === 'string' ? options['textBaseline'] : 'alphabetic',
+					rotateWithView: typeof options['rotateWithView'] === 'boolean' ? options['rotateWithView'] : false,
+					fill: this._getFill(options['textFill']),
+					stroke: this._getStroke(options['textStroke'])
+				});
+				return text;
+			} catch (error) {
+				console.log(error);
+			}
+		}
+
+		/**
+   * 获取图标样式
+   * @param options
+   * @returns {*}
+   * @private
+   */
+
+	}, {
+		key: '_getImage',
+		value: function _getImage(options) {
+			try {
+				var image = void 0;
+				options = options || {};
+				if (options['type'] === 'icon') {
+					image = this._getIcon(options['image']);
+				} else {
+					image = this._getRegularShape(options['image']);
+				}
+				return image;
+			} catch (e) {
+				console.log(e);
+			}
+		}
+
+		/**
+   * 获取icon
+   * @param options
+   * @returns {ol.style.Icon}
+   * @private
+   */
+
+	}, {
+		key: '_getIcon',
+		value: function _getIcon(options) {
+			try {
+				options = options || {};
+				var icon = new ol.style.Icon({
+					anchor: options['imageAnchor'] ? options['imageAnchor'] : [0.5, 0.5],
+					anchorXUnits: options['imageAnchorXUnits'] ? options['imageAnchorXUnits'] : 'fraction',
+					anchorYUnits: options['imageAnchorYUnits'] ? options['imageAnchorYUnits'] : 'fraction',
+					anchorOrigin: options['imageAnchorOrigin'] ? options['imageAnchorYUnits'] : 'top-left',
+					color: options['imageColor'] ? options['imageColor'] : undefined,
+					crossOrigin: options['crossOrigin'] ? options['crossOrigin'] : undefined,
+					img: options['img'] ? options['img'] : undefined,
+					offset: options['offset'] && Array.isArray(options['offset']) && options['offset'].length === 2 ? options['offset'] : [0, 0],
+					offsetOrigin: options['offsetOrigin'] ? options['offsetOrigin'] : 'top-left',
+					scale: typeof options['scale'] === 'number' ? options['scale'] : 1,
+					snapToPixel: typeof options['snapToPixel'] === 'boolean' ? options['snapToPixel'] : true,
+					rotateWithView: typeof options['rotateWithView'] === 'boolean' ? options['rotateWithView'] : false,
+					opacity: typeof options['imageOpacity'] === 'number' ? options['imageOpacity'] : 1,
+					rotation: typeof options['imageRotation'] === 'number' ? options['imageRotation'] : 0,
+					size: options['size'] && Array.isArray(options['size']) && options['size'].length === 2 ? options['size'] : undefined,
+					imgSize: options['imgSize'] && Array.isArray(options['imgSize']) && options['imgSize'].length === 2 ? options['imgSize'] : undefined,
+					src: options['imageSrc'] ? options['imageSrc'] : undefined
+				});
+				return icon;
+			} catch (error) {
+				console.log(error);
+			}
+		}
+
+		/**
+   * 获取规则样式图形
+   * @param options
+   * @returns {*}
+   * @private
+   */
+
+	}, {
+		key: '_getRegularShape',
+		value: function _getRegularShape(options) {
+			try {
+				var regularShape = new ol.style.RegularShape({
+					fill: this._getFill(options['fill']) || undefined,
+					points: typeof options['points'] === 'number' ? options['points'] : 1,
+					radius: typeof options['radius'] === 'number' ? options['radius'] : undefined,
+					radius1: typeof options['radius1'] === 'number' ? options['radius1'] : undefined,
+					radius2: typeof options['radius2'] === 'number' ? options['radius2'] : undefined,
+					angle: typeof options['angle'] === 'number' ? options['angle'] : 0,
+					snapToPixel: typeof options['snapToPixel'] === 'boolean' ? options['snapToPixel'] : true,
+					stroke: this._getStroke(options['stroke']) || undefined,
+					rotation: typeof options['rotation'] === 'number' ? options['rotation'] : 0,
+					rotateWithView: typeof options['rotateWithView'] === 'boolean' ? options['rotateWithView'] : false,
+					atlasManager: options['atlasManager'] ? options['atlasManager'] : undefined
+				});
+				return regularShape;
+			} catch (e) {
+				console.log(e);
 			}
 		}
 	}]);
