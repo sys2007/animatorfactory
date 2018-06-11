@@ -346,7 +346,7 @@ var AnimatorFactory = function () {
 			var arrow = this.plot.plotDraw.createPlot(element.elementType);
 			arrow.setPoints(element.keyPoints1);
 			var arr = arrow.getCoordinates();
-			if (element.elementType === 'Polyline' || element.elementType === 'StraightArrow') {
+			if (element.elementType === 'Polyline') {
 				p = this.map.addPolyline(arr.join(','), {
 					layerName: this.layer,
 					zoomToExtent: false
@@ -647,4 +647,4 @@ module.exports = AnimatorFactory;
 
 /******/ });
 });
-//# sourceMappingURL=AnimatorFactory.js.map
+//# sourceMappingURL=AnimatorFactory.js.map  
