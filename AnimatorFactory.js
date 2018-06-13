@@ -184,6 +184,8 @@ var AnimatorFactory = function () {
 							_element.action = 'add';
 							if (element.style) {
 								_element.style = element.style;
+							} else if (element.styleName) {
+								_element.styleName = element.styleName;
 							}
 						}
 						/** 元素的最后帧，一般是下图 **/
@@ -419,6 +421,11 @@ var AnimatorFactory = function () {
 						if (p) {
 							p.setStyle(style_);
 						}
+					}
+				} else if (element.styleName) {
+					if (p) {
+						this.plot.plotDraw.feature = p;
+						this.plot.plotDraw.setStyle4Name(element.styleName);
 					}
 				}
 				return;
