@@ -1,2 +1,658 @@
-!function(e,t){"object"==typeof exports&&"object"==typeof module?module.exports=t():"function"==typeof define&&define.amd?define("AnimatorFactory",[],t):"object"==typeof exports?exports.AnimatorFactory=t():e.AnimatorFactory=t()}(window,function(){return function(e){var t={};function o(i){if(t[i])return t[i].exports;var n=t[i]={i:i,l:!1,exports:{}};return e[i].call(n.exports,n,n.exports,o),n.l=!0,n.exports}return o.m=e,o.c=t,o.d=function(e,t,i){o.o(e,t)||Object.defineProperty(e,t,{enumerable:!0,get:i})},o.r=function(e){"undefined"!=typeof Symbol&&Symbol.toStringTag&&Object.defineProperty(e,Symbol.toStringTag,{value:"Module"}),Object.defineProperty(e,"__esModule",{value:!0})},o.t=function(e,t){if(1&t&&(e=o(e)),8&t)return e;if(4&t&&"object"==typeof e&&e&&e.__esModule)return e;var i=Object.create(null);if(o.r(i),Object.defineProperty(i,"default",{enumerable:!0,value:e}),2&t&&"string"!=typeof e)for(var n in e)o.d(i,n,function(t){return e[t]}.bind(null,n));return i},o.n=function(e){var t=e&&e.__esModule?function(){return e.default}:function(){return e};return o.d(t,"a",t),t},o.o=function(e,t){return Object.prototype.hasOwnProperty.call(e,t)},o.p="",o(o.s=0)}([function(e,t,o){"use strict";var i="function"==typeof Symbol&&"symbol"==typeof Symbol.iterator?function(e){return typeof e}:function(e){return e&&"function"==typeof Symbol&&e.constructor===Symbol&&e!==Symbol.prototype?"symbol":typeof e},n=function(){function e(e,t){for(var o=0;o<t.length;o++){var i=t[o];i.enumerable=i.enumerable||!1,i.configurable=!0,"value"in i&&(i.writable=!0),Object.defineProperty(e,i.key,i)}}return function(t,o,i){return o&&e(t.prototype,o),i&&e(t,i),t}}();var r=function(){function e(t,o,i,n,r,a){!function(e,t){if(!(e instanceof t))throw new TypeError("Cannot call a class as a function")}(this,e),this.json=t,this.fps=a||30,this.plot=i,this.turf=n,this.map=o,this.layer=r||"_ctfoSchemaPolygon_",this.easing=function(e){return e},this.duration=1}return n(e,[{key:"initAnalysis",value:function(e){e=e||this.json;var t=JSON.parse(e);this.duration=1e3*t.totalTime;var o=t.steps,i=this.fps,n=this.turf,r=[];return o.forEach(function(e,t){var o=e.stepTotalTime*i,a=e.elements,s=Array.apply(null,Array(o));a.forEach(function(e,t){e.runTime;for(var o=e.delay*i;o<(e.delay+e.runTime)*i;o++){var r={};if(s[o]||(s[o]=new Array),r.action="none",r.type=e.elementType,r.id=e.elementId,e.isChange&&(r.action="update"),o===e.delay*i&&(r.action="add",e.style&&(r.style=e.style)),o===e.runTime*i-1&&e.isRemove&&(r.action="delete"),"none"!==r.action){for(var a=void 0,l=void 0,f=void 0,u=void 0,c=void 0,y={units:"meters"},m=e.keyPoints1,p=e.keyPoints2,g=[],d=0;d<m.length;d++)a=n.point(m[d]),l=n.point(p[d]),f=n.distance(a,l,y),u=n.lineString([m[d],p[d]]),f<10?g[d]=a.geometry.coordinates:(c=f/(e.runTime*i),g[d]=n.along(u,c*(o-e.delay+1),y).geometry.coordinates);r.keyPoint=g,s[o].push(r)}else s[o].push(r)}}),s.forEach(function(e,t){r.push(e)})}),this.setAnimatArr(r),r}},{key:"setAnimatArr",value:function(e){this.animatArr=e}},{key:"getAnimatArr",value:function(){return this.animatArr}},{key:"start",value:function(e){var t=void 0,o=Date.now(),i=1e3/this.fps,n=0,r=Date.now();console.log("startTime...."+r);var a=this.duration,s=this,l=!0;requestAnimationFrame(function f(){var u=(Date.now()-r)/a;n<s.getAnimatArr().length?(t=Date.now(),t-o>i&&(n++,s.progress(n,s.easing(u),u),o=Date.now())):(e?l=!1:(l=!0,n=0,r=Date.now()),console.log("startTime_end...."+(Date.now()-r))),l&&requestAnimationFrame(f)})}},{key:"progress",value:function(e){var t=this.getAnimatArr()[e-1];t&&t.forEach(function(e){this._playElement(e)}.bind(this))}},{key:"addStepFeatures",value:function(e){e&&(e.elements&&e.elements.forEach(function(e){this._addStepFeature(e)}.bind(this)))}},{key:"_addStepFeature",value:function(e){if(e){var t=void 0,o=this.plot.plotDraw.createPlot(e.elementType);o.setPoints(e.keyPoints1);var i=o.getCoordinates();if((t=this._getGeometry(e.elementType,i))&&(t.setId(e.elementId),t.set("isPlot",!0),e.style)){var n=this.setStyle(e.style);n&&t.setStyle(n)}}}},{key:"_playElement",value:function(e){if(e&&"none"!==e.action)if("delete"!==e.action){var t=this.map.getFeatureById(e.id),o=this.plot.plotDraw.createPlot(e.type);o.setPoints(e.keyPoint);var i=o.getCoordinates();if("add"!==e.action)t&&t.getGeometry().setCoordinates(i);else if(t?t.getGeometry().setCoordinates(i):(t=this._getGeometry(e.type,i))&&t.setId(e.id),e.style){var n=this.setStyle(e.style);n&&t&&t.setStyle(n)}}else this.map.removeFeatureById(e.id)}},{key:"_getGeometry",value:function(e,t){var o=null;return e&&("Polyline"===e||"StraightArrow"===e||"Curve"===e||"FreeHandLine"===e||"Arc"===e?o=this.map.addPolyline(t.join(","),{layerName:this.layer,zoomToExtent:!1}):"Point"===e||"Pennant"===e?o=this.map.addPoint(t.join(","),{layerName:this.layer,zoomToExtent:!1}):"PlotText"===e||"TextArea"===e||"PlotTextBox"===e||(o=this.map.addPolygon(t.join(","),{layerName:this.layer,zoomToExtent:!1}))),o}},{key:"setStyle",value:function(e){var t=e&&"object"===(void 0===e?"undefined":i(e))?e:{},o=new ol.style.Style({});return t.fill&&"object"===i(t.fill)&&o.setFill(this._getFill(t.fill)),t.image&&"object"===i(t.image)&&o.setImage(this._getImage(t.image)),t.stroke&&"object"===i(t.stroke)&&o.setStroke(this._getStroke(t.stroke)),t.text&&"object"===i(t.text)&&o.setText(this._getText(t.text)),o}},{key:"_getFill",value:function(e){try{return e=e||{},new ol.style.Fill({color:e.fillColor?e.fillColor:void 0})}catch(e){console.log(e)}}},{key:"_getStroke",value:function(e){try{return e=e||{},new ol.style.Stroke({color:e.strokeColor?e.strokeColor:void 0,lineCap:e.strokeLineCap&&"string"==typeof e.strokeLineCap?e.strokeLineCap:"round",lineJoin:e.strokeLineJoin&&"string"==typeof e.strokeLineJoin?e.strokeLineJoin:"round",lineDash:e.strokeLineDash?e.strokeLineDash:void 0,lineDashOffset:"number"==typeof e.strokeLineDashOffset?e.strokeLineDashOffset:"0",miterLimit:"number"==typeof e.strokeMiterLimit?e.strokeMiterLimit:10,width:"number"==typeof e.strokeWidth?e.strokeWidth:void 0})}catch(e){console.log(e)}}},{key:"_getText",value:function(e){try{return new ol.style.Text({font:e.textFont&&"string"==typeof e.textFont?e.textFont:"10px sans-serif",offsetX:"number"==typeof e.textOffsetX?e.textOffsetX:0,offsetY:"number"==typeof e.textOffsetY?e.textOffsetY:0,scale:"number"==typeof e.textScale?e.textScale:void 0,rotation:"number"==typeof e.textRotation?e.textRotation:0,text:e.text&&"string"==typeof e.text?e.text:void 0,textAlign:e.textAlign&&"string"==typeof e.textAlign?e.textAlign:"start",textBaseline:e.textBaseline&&"string"==typeof e.textBaseline?e.textBaseline:"alphabetic",rotateWithView:"boolean"==typeof e.rotateWithView&&e.rotateWithView,fill:this._getFill(e.textFill),stroke:this._getStroke(e.textStroke)})}catch(e){console.log(e)}}},{key:"_getImage",value:function(e){try{return"icon"===(e=e||{}).type?this._getIcon(e.image):this._getRegularShape(e.image)}catch(e){console.log(e)}}},{key:"_getIcon",value:function(e){try{return e=e||{},new ol.style.Icon({anchor:e.imageAnchor?e.imageAnchor:[.5,.5],anchorXUnits:e.imageAnchorXUnits?e.imageAnchorXUnits:"fraction",anchorYUnits:e.imageAnchorYUnits?e.imageAnchorYUnits:"fraction",anchorOrigin:e.imageAnchorOrigin?e.imageAnchorYUnits:"top-left",color:e.imageColor?e.imageColor:void 0,crossOrigin:e.crossOrigin?e.crossOrigin:void 0,img:e.img?e.img:void 0,offset:e.offset&&Array.isArray(e.offset)&&2===e.offset.length?e.offset:[0,0],offsetOrigin:e.offsetOrigin?e.offsetOrigin:"top-left",scale:"number"==typeof e.scale?e.scale:1,snapToPixel:"boolean"!=typeof e.snapToPixel||e.snapToPixel,rotateWithView:"boolean"==typeof e.rotateWithView&&e.rotateWithView,opacity:"number"==typeof e.imageOpacity?e.imageOpacity:1,rotation:"number"==typeof e.imageRotation?e.imageRotation:0,size:e.size&&Array.isArray(e.size)&&2===e.size.length?e.size:void 0,imgSize:e.imgSize&&Array.isArray(e.imgSize)&&2===e.imgSize.length?e.imgSize:void 0,src:e.imageSrc?e.imageSrc:void 0})}catch(e){console.log(e)}}},{key:"_getRegularShape",value:function(e){try{return new ol.style.RegularShape({fill:this._getFill(e.fill)||void 0,points:"number"==typeof e.points?e.points:1,radius:"number"==typeof e.radius?e.radius:void 0,radius1:"number"==typeof e.radius1?e.radius1:void 0,radius2:"number"==typeof e.radius2?e.radius2:void 0,angle:"number"==typeof e.angle?e.angle:0,snapToPixel:"boolean"!=typeof e.snapToPixel||e.snapToPixel,stroke:this._getStroke(e.stroke)||void 0,rotation:"number"==typeof e.rotation?e.rotation:0,rotateWithView:"boolean"==typeof e.rotateWithView&&e.rotateWithView,atlasManager:e.atlasManager?e.atlasManager:void 0})}catch(e){console.log(e)}}}]),e}();e.exports=r}])});
+(function webpackUniversalModuleDefinition(root, factory) {
+	if(typeof exports === 'object' && typeof module === 'object')
+		module.exports = factory();
+	else if(typeof define === 'function' && define.amd)
+		define("AnimatorFactory", [], factory);
+	else if(typeof exports === 'object')
+		exports["AnimatorFactory"] = factory();
+	else
+		root["AnimatorFactory"] = factory();
+})(window, function() {
+return /******/ (function(modules) { // webpackBootstrap
+/******/ 	// The module cache
+/******/ 	var installedModules = {};
+/******/
+/******/ 	// The require function
+/******/ 	function __webpack_require__(moduleId) {
+/******/
+/******/ 		// Check if module is in cache
+/******/ 		if(installedModules[moduleId]) {
+/******/ 			return installedModules[moduleId].exports;
+/******/ 		}
+/******/ 		// Create a new module (and put it into the cache)
+/******/ 		var module = installedModules[moduleId] = {
+/******/ 			i: moduleId,
+/******/ 			l: false,
+/******/ 			exports: {}
+/******/ 		};
+/******/
+/******/ 		// Execute the module function
+/******/ 		modules[moduleId].call(module.exports, module, module.exports, __webpack_require__);
+/******/
+/******/ 		// Flag the module as loaded
+/******/ 		module.l = true;
+/******/
+/******/ 		// Return the exports of the module
+/******/ 		return module.exports;
+/******/ 	}
+/******/
+/******/
+/******/ 	// expose the modules object (__webpack_modules__)
+/******/ 	__webpack_require__.m = modules;
+/******/
+/******/ 	// expose the module cache
+/******/ 	__webpack_require__.c = installedModules;
+/******/
+/******/ 	// define getter function for harmony exports
+/******/ 	__webpack_require__.d = function(exports, name, getter) {
+/******/ 		if(!__webpack_require__.o(exports, name)) {
+/******/ 			Object.defineProperty(exports, name, { enumerable: true, get: getter });
+/******/ 		}
+/******/ 	};
+/******/
+/******/ 	// define __esModule on exports
+/******/ 	__webpack_require__.r = function(exports) {
+/******/ 		if(typeof Symbol !== 'undefined' && Symbol.toStringTag) {
+/******/ 			Object.defineProperty(exports, Symbol.toStringTag, { value: 'Module' });
+/******/ 		}
+/******/ 		Object.defineProperty(exports, '__esModule', { value: true });
+/******/ 	};
+/******/
+/******/ 	// create a fake namespace object
+/******/ 	// mode & 1: value is a module id, require it
+/******/ 	// mode & 2: merge all properties of value into the ns
+/******/ 	// mode & 4: return value when already ns object
+/******/ 	// mode & 8|1: behave like require
+/******/ 	__webpack_require__.t = function(value, mode) {
+/******/ 		if(mode & 1) value = __webpack_require__(value);
+/******/ 		if(mode & 8) return value;
+/******/ 		if((mode & 4) && typeof value === 'object' && value && value.__esModule) return value;
+/******/ 		var ns = Object.create(null);
+/******/ 		__webpack_require__.r(ns);
+/******/ 		Object.defineProperty(ns, 'default', { enumerable: true, value: value });
+/******/ 		if(mode & 2 && typeof value != 'string') for(var key in value) __webpack_require__.d(ns, key, function(key) { return value[key]; }.bind(null, key));
+/******/ 		return ns;
+/******/ 	};
+/******/
+/******/ 	// getDefaultExport function for compatibility with non-harmony modules
+/******/ 	__webpack_require__.n = function(module) {
+/******/ 		var getter = module && module.__esModule ?
+/******/ 			function getDefault() { return module['default']; } :
+/******/ 			function getModuleExports() { return module; };
+/******/ 		__webpack_require__.d(getter, 'a', getter);
+/******/ 		return getter;
+/******/ 	};
+/******/
+/******/ 	// Object.prototype.hasOwnProperty.call
+/******/ 	__webpack_require__.o = function(object, property) { return Object.prototype.hasOwnProperty.call(object, property); };
+/******/
+/******/ 	// __webpack_public_path__
+/******/ 	__webpack_require__.p = "";
+/******/
+/******/
+/******/ 	// Load entry module and return exports
+/******/ 	return __webpack_require__(__webpack_require__.s = "./src/index.js");
+/******/ })
+/************************************************************************/
+/******/ ({
+
+/***/ "./src/index.js":
+/*!**********************!*\
+  !*** ./src/index.js ***!
+  \**********************/
+/*! no static exports found */
+/***/ (function(module, exports, __webpack_require__) {
+
+"use strict";
+
+
+var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol" ? function (obj) { return typeof obj; } : function (obj) { return obj && typeof Symbol === "function" && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; };
+
+var _createClass = function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; }();
+
+function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
+
+/*
+  json 参数1：预案的json格式信息
+  qmap 参数2：当前地图对象
+  plot 参数3：标绘对象实例 
+  turf 参数4：工具对象实例
+  layerName 参数5： 图层名
+  fps  参数6：每秒帧数，默认24
+ */
+
+var AnimatorFactory = function () {
+	function AnimatorFactory(json, qmap, plot, turf, layerName, fps) {
+		_classCallCheck(this, AnimatorFactory);
+
+		this.json = json;
+		this.fps = fps || 30;
+		this.plot = plot;
+		this.turf = turf;
+		this.map = qmap;
+		this.layer = layerName || '_ctfoSchemaPolygon_';
+		this.easing = function (p) {
+			return p;
+		};
+		this.duration = 1;
+	}
+
+	/**
+ 	* 解析json文件
+ 	*/
+
+
+	_createClass(AnimatorFactory, [{
+		key: 'initAnalysis',
+		value: function initAnalysis(json) {
+			// console.log(ol.style.Fill)
+			json = json || this.json;
+			var schema = JSON.parse(json); // 预案JSON对象
+			this.duration = schema.totalTime * 1000;
+			var steps = schema.steps; // 预案步骤列表
+			var thatFps = this.fps; // 当前播放帧数
+			var turf = this.turf; // turf对象
+			var schemaArr = []; //返回预案按帧播放列表对象
+			/** 遍历步骤列表生成每帧待播放元素集合对象 **/
+			steps.forEach(function (step, key) {
+				var totalTime = step.stepTotalTime; // 当前步骤的播放时长
+				var totalFps = totalTime * thatFps; // 当前步骤总的播放帧数
+				var elements = step.elements; // 当前步骤的所有元素列表
+				var stepFpsArr = Array.apply(null, Array(totalFps)); // 当前步骤每帧要完成的元素信息
+				//stepFpsArr.length = totalFps
+				/** 遍历元素列表按帧生成元素关键信息 **/
+				elements.forEach(function (element, _key) {
+					//console.log(element.delay +','+ element.runTime)
+					//console.log(element.delay + element.runTime)
+					if (element.runTime === 0) {}
+					//当没有播放时长时的处理	
+
+					/** 当前元素按帧生成关系信息对象 **/
+					for (var x = element.delay * thatFps; x < (element.delay + element.runTime) * thatFps; x++) {
+						var _element = {}; // 每帧要播放的元素信息
+						if (!stepFpsArr[x]) {
+							stepFpsArr[x] = new Array();
+						}
+						_element.action = 'none';
+						_element.type = element.elementType;
+						_element.id = element.elementId;
+						if (element.isChange) {
+							_element.action = 'update';
+						}
+						/** 元素的第一帧，一般是上图 **/
+						if (x === element.delay * thatFps) {
+							_element.action = 'add';
+							if (element.style) {
+								_element.style = element.style;
+							}
+						}
+						/** 元素的最后帧，一般是下图 **/
+						if (x === element.runTime * thatFps - 1) {
+							if (element.isRemove) {
+								_element.action = 'delete';
+							}
+						}
+						if (_element.action === 'none') {
+							stepFpsArr[x].push(_element);
+							continue;
+						}
+						var point1 = void 0; //当前元素关键点1的一个点
+						var point2 = void 0; //当前元素关键点2的对应点
+						var distance = void 0; //两点间的距离
+						var line = void 0; //两个对应点生成的线对象
+						var phr = void 0; //每帧对应线上的实际距离
+						var options = { units: 'meters' };
+						var pointArr1 = element.keyPoints1; // 当前元素的关键点1
+						var pointArr2 = element.keyPoints2; // 当前元素的关键点2
+						var keyPointArr = []; //当前帧的关关键点对象
+						/** 遍历关键点以生成关键点1和关键点2之间相对应的点的变化信息 主要针对多边形的变化，暂不涉及轨迹的播放 **/
+						for (var i = 0; i < pointArr1.length; i++) {
+							point1 = turf.point(pointArr1[i]);
+							point2 = turf.point(pointArr2[i]);
+							distance = turf.distance(point1, point2, options);
+							line = turf.lineString([pointArr1[i], pointArr2[i]]);
+							if (distance < 10) {
+								keyPointArr[i] = point1.geometry.coordinates;
+							} else {
+								phr = distance / (element.runTime * thatFps);
+								keyPointArr[i] = turf.along(line, phr * (x - element.delay + 1), options).geometry.coordinates; // 取线上指定距离的点
+							}
+						}
+						_element.keyPoint = keyPointArr;
+						stepFpsArr[x].push(_element);
+					}
+				});
+				stepFpsArr.forEach(function (stepFps, _key_) {
+					schemaArr.push(stepFps);
+				});
+			});
+			this.setAnimatArr(schemaArr);
+			return schemaArr;
+		}
+	}, {
+		key: 'setAnimatArr',
+		value: function setAnimatArr(schemaArr) {
+			this.animatArr = schemaArr;
+		}
+	}, {
+		key: 'getAnimatArr',
+		value: function getAnimatArr() {
+			return this.animatArr;
+		}
+
+		/*开始动画的方法， 
+      参数：一个布尔值
+      true表示动画不循环执行。  
+     */
+
+	}, {
+		key: 'start',
+		value: function start(finished) {
+			var now = void 0;
+			var then = Date.now();
+			var interval = 1000 / this.fps;
+			var delta = void 0;
+			var currentFps = 0; //当前帧数
+
+			/*动画开始时间*/
+			var startTime = Date.now();
+			console.log('startTime....' + startTime);
+			/*动画执行时间*/
+			var duration = this.duration,
+			    self = this;
+			/*是否执行下一帧动画*/
+			var next = true;
+			/*定义动画执行函数*/
+			requestAnimationFrame(function step() {
+				/*得到动画执行进度*/
+				//let p = (delta) / duration
+				var p = (Date.now() - startTime) / duration;
+
+				/*判断动画进度是否完成*/
+				// if(p < 1.0) {
+				if (currentFps < self.getAnimatArr().length) {
+					now = Date.now();
+					delta = now - then;
+					if (delta > interval) {
+						//then = now// - (delta % interval)
+						currentFps++;
+						//self.progress(currentFps,self.easing(p), p)   //执行动画回调函数，并传入动画算子的结果和动画进度。
+						self.progress(currentFps, self.easing(p), p);
+						then = Date.now();
+						// console.log(currentFps)
+					} // 否则跳过此帧不播
+				} else {
+					if (finished) {
+						//判断是否停止动画。如果是true代表停止动画。
+						next = false;
+					} else {
+						next = true;
+						currentFps = 0; //重置当前帧数
+						startTime = Date.now();
+					}
+					console.log('startTime_end....' + (Date.now() - startTime));
+					// console.log(currentFps)
+				}
+				// 如果next是true执行下一帧动画
+				if (next) requestAnimationFrame(step);
+			});
+		}
+
+		/**
+  	* 播放函数
+  	* currentFps 参数1：当前帧数，从1开始
+  	*/
+
+	}, {
+		key: 'progress',
+		value: function progress(currentFps) {
+			var schemaArr = this.getAnimatArr();
+
+			var elementArr = schemaArr[currentFps - 1];
+			if (elementArr) {
+				elementArr.forEach(function (element) {
+					this._playElement(element);
+				}.bind(this));
+			}
+		}
+
+		/**
+  	* 添加当前步骤对象中的元素上图
+  	* options 参数1：当前步骤JSON对象，里面是元素数组
+  	*/
+
+	}, {
+		key: 'addStepFeatures',
+		value: function addStepFeatures(options) {
+			if (options) {
+				if (options['elements']) {
+					var elements = options['elements'];
+					elements.forEach(function (element) {
+						this._addStepFeature(element);
+					}.bind(this));
+				}
+			}
+		}
+
+		/**
+  	* 添加当前步骤对象中的一个元素上图
+  	* element 参数1：当前元素JSON对象
+  	*/
+
+	}, {
+		key: '_addStepFeature',
+		value: function _addStepFeature(element) {
+			if (!element) {
+				return;
+			}
+			// elementId elementType keyPoints1 style
+			var p = void 0;
+			var arrow = this.plot.plotDraw.createPlot(element.elementType);
+			arrow.setPoints(element.keyPoints1);
+			// let arr = arrow.getCoordinates()
+			// p = this._getGeometry(element.elementType,arr)
+			p = new ol.Feature(arrow);
+			if (p) {
+				p.setId(element.elementId);
+				p.set('isPlot', true);
+				this.plot.plotDraw.drawLayer.getSource().addFeature(p);
+				if (element.style) {
+					var style_ = this.setStyle(element.style);
+					if (style_) {
+						p.setStyle(style_);
+					}
+				}
+			}
+		}
+
+		/**
+  	* 播放函数
+  	* currentFps 参数1：当前帧数，从1开始
+  	*/
+
+	}, {
+		key: '_playElement',
+		value: function _playElement(element) {
+			/*
+    * element 当前播放的元素对象，包含:
+    * .action 动作 none,update,add,delete
+    * .type 类型
+    * .id 
+    * .keyPoint 点对象 数组
+    * .style 
+   */
+			if (!element) {
+				return;
+			}
+			if (element.action === 'none') {
+				return;
+			}
+			if (element.action === 'delete') {
+				this.map.removeFeatureById(element.id);
+				return;
+			}
+			//let p = this.map.getFeatureById2LayerName(this.layer,element.id)
+			var p = this.map.getFeatureById(element.id);
+			var arrow = this.plot.plotDraw.createPlot(element.type);
+			arrow.setPoints(element.keyPoint);
+			var arr = arrow.getCoordinates();
+			if (element.action === 'add') {
+				if (p) {
+					p.getGeometry().setCoordinates(arr);
+				} else {
+					p = this._getGeometry(element.type, arr);
+					if (p) {
+						p.setId(element.id);
+					}
+				}
+				if (element.style) {
+					var style_ = this.setStyle(element.style);
+					if (style_) {
+						if (p) {
+							p.setStyle(style_);
+						}
+					}
+				}
+				return;
+			}
+			if (p) {
+				p.getGeometry().setCoordinates(arr);
+			}
+		}
+
+		/**
+  	*	根据类型获取地图元素
+  	* type 元素类型
+  	* arr  元素坐标信息
+  	*/
+
+	}, {
+		key: '_getGeometry',
+		value: function _getGeometry(type, arr) {
+			var p = null;
+			if (type) {
+				if (type === 'Polyline' || type === 'StraightArrow' || type === 'Curve' || type === 'FreeHandLine' || type === 'Arc') {
+					p = this.map.addPolyline(arr.join(','), {
+						layerName: this.layer,
+						zoomToExtent: false
+					});
+				} else if (type === 'Point' || type === 'Pennant') {
+					p = this.map.addPoint(arr.join(','), {
+						layerName: this.layer,
+						zoomToExtent: false
+					});
+				} else if (type === 'PlotText' || type === 'TextArea' || type === 'PlotTextBox') {} else {
+					p = this.map.addPolygon(arr.join(','), {
+						layerName: this.layer,
+						zoomToExtent: false
+					});
+				}
+			}
+			return p;
+		}
+
+		/**
+  	* 根据配置加载样式
+  	* options 参数1 stylec数组对象
+  	*/
+
+	}, {
+		key: 'setStyle',
+		value: function setStyle(options) {
+			var option = options && (typeof options === 'undefined' ? 'undefined' : _typeof(options)) === 'object' ? options : {};
+			var style = new ol.style.Style({});
+			if (option['fill'] && _typeof(option['fill']) === 'object') {
+				style.setFill(this._getFill(option['fill']));
+			}
+			if (option['image'] && _typeof(option['image']) === 'object') {
+				style.setImage(this._getImage(option['image']));
+			}
+			if (option['stroke'] && _typeof(option['stroke']) === 'object') {
+				style.setStroke(this._getStroke(option['stroke']));
+			}
+			if (option['text'] && _typeof(option['text']) === 'object') {
+				style.setText(this._getText(option['text']));
+			}
+			return style;
+		}
+
+		/**
+   * 获取填充颜色
+   * @param options
+   * @returns {ol.style.Fill}
+   * @private
+   */
+
+	}, {
+		key: '_getFill',
+		value: function _getFill(options) {
+			try {
+				options = options || {};
+				var fill = new ol.style.Fill({
+					color: options['fillColor'] ? options['fillColor'] : undefined
+				});
+				return fill;
+			} catch (error) {
+				console.log(error);
+			}
+		}
+
+		/**
+   * 获取线条样式
+   * @param options
+   * @returns {ol.style.Stroke}
+   * @private
+   */
+
+	}, {
+		key: '_getStroke',
+		value: function _getStroke(options) {
+			try {
+				options = options || {};
+				var stroke = new ol.style.Stroke({
+					color: options['strokeColor'] ? options['strokeColor'] : undefined,
+					lineCap: options['strokeLineCap'] && typeof options['strokeLineCap'] === 'string' ? options['strokeLineCap'] : 'round',
+					lineJoin: options['strokeLineJoin'] && typeof options['strokeLineJoin'] === 'string' ? options['strokeLineJoin'] : 'round',
+					lineDash: options['strokeLineDash'] ? options['strokeLineDash'] : undefined,
+					lineDashOffset: typeof options['strokeLineDashOffset'] === 'number' ? options['strokeLineDashOffset'] : '0',
+					miterLimit: typeof options['strokeMiterLimit'] === 'number' ? options['strokeMiterLimit'] : 10,
+					width: typeof options['strokeWidth'] === 'number' ? options['strokeWidth'] : undefined
+				});
+				return stroke;
+			} catch (error) {
+				console.log(error);
+			}
+		}
+
+		/**
+   * 获取样式文本
+   * @param options
+   * @returns {ol.style.Text}
+   * @private
+   */
+
+	}, {
+		key: '_getText',
+		value: function _getText(options) {
+			try {
+				var text = new ol.style.Text({
+					font: options['textFont'] && typeof options['textFont'] === 'string' ? options['textFont'] : '10px sans-serif',
+					offsetX: typeof options['textOffsetX'] === 'number' ? options['textOffsetX'] : 0,
+					offsetY: typeof options['textOffsetY'] === 'number' ? options['textOffsetY'] : 0,
+					scale: typeof options['textScale'] === 'number' ? options['textScale'] : undefined,
+					rotation: typeof options['textRotation'] === 'number' ? options['textRotation'] : 0,
+					text: options['text'] && typeof options['text'] === 'string' ? options['text'] : undefined,
+					textAlign: options['textAlign'] && typeof options['textAlign'] === 'string' ? options['textAlign'] : 'start',
+					textBaseline: options['textBaseline'] && typeof options['textBaseline'] === 'string' ? options['textBaseline'] : 'alphabetic',
+					rotateWithView: typeof options['rotateWithView'] === 'boolean' ? options['rotateWithView'] : false,
+					fill: this._getFill(options['textFill']),
+					stroke: this._getStroke(options['textStroke'])
+				});
+				return text;
+			} catch (error) {
+				console.log(error);
+			}
+		}
+
+		/**
+   * 获取图标样式
+   * @param options
+   * @returns {*}
+   * @private
+   */
+
+	}, {
+		key: '_getImage',
+		value: function _getImage(options) {
+			try {
+				var image = void 0;
+				options = options || {};
+				if (options['type'] === 'icon') {
+					image = this._getIcon(options['image']);
+				} else {
+					image = this._getRegularShape(options['image']);
+				}
+				return image;
+			} catch (e) {
+				console.log(e);
+			}
+		}
+
+		/**
+   * 获取icon
+   * @param options
+   * @returns {ol.style.Icon}
+   * @private
+   */
+
+	}, {
+		key: '_getIcon',
+		value: function _getIcon(options) {
+			try {
+				options = options || {};
+				var icon = new ol.style.Icon({
+					anchor: options['imageAnchor'] ? options['imageAnchor'] : [0.5, 0.5],
+					anchorXUnits: options['imageAnchorXUnits'] ? options['imageAnchorXUnits'] : 'fraction',
+					anchorYUnits: options['imageAnchorYUnits'] ? options['imageAnchorYUnits'] : 'fraction',
+					anchorOrigin: options['imageAnchorOrigin'] ? options['imageAnchorYUnits'] : 'top-left',
+					color: options['imageColor'] ? options['imageColor'] : undefined,
+					crossOrigin: options['crossOrigin'] ? options['crossOrigin'] : undefined,
+					img: options['img'] ? options['img'] : undefined,
+					offset: options['offset'] && Array.isArray(options['offset']) && options['offset'].length === 2 ? options['offset'] : [0, 0],
+					offsetOrigin: options['offsetOrigin'] ? options['offsetOrigin'] : 'top-left',
+					scale: typeof options['scale'] === 'number' ? options['scale'] : 1,
+					snapToPixel: typeof options['snapToPixel'] === 'boolean' ? options['snapToPixel'] : true,
+					rotateWithView: typeof options['rotateWithView'] === 'boolean' ? options['rotateWithView'] : false,
+					opacity: typeof options['imageOpacity'] === 'number' ? options['imageOpacity'] : 1,
+					rotation: typeof options['imageRotation'] === 'number' ? options['imageRotation'] : 0,
+					size: options['size'] && Array.isArray(options['size']) && options['size'].length === 2 ? options['size'] : undefined,
+					imgSize: options['imgSize'] && Array.isArray(options['imgSize']) && options['imgSize'].length === 2 ? options['imgSize'] : undefined,
+					src: options['imageSrc'] ? options['imageSrc'] : undefined
+				});
+				return icon;
+			} catch (error) {
+				console.log(error);
+			}
+		}
+
+		/**
+   * 获取规则样式图形
+   * @param options
+   * @returns {*}
+   * @private
+   */
+
+	}, {
+		key: '_getRegularShape',
+		value: function _getRegularShape(options) {
+			try {
+				var regularShape = new ol.style.RegularShape({
+					fill: this._getFill(options['fill']) || undefined,
+					points: typeof options['points'] === 'number' ? options['points'] : 1,
+					radius: typeof options['radius'] === 'number' ? options['radius'] : undefined,
+					radius1: typeof options['radius1'] === 'number' ? options['radius1'] : undefined,
+					radius2: typeof options['radius2'] === 'number' ? options['radius2'] : undefined,
+					angle: typeof options['angle'] === 'number' ? options['angle'] : 0,
+					snapToPixel: typeof options['snapToPixel'] === 'boolean' ? options['snapToPixel'] : true,
+					stroke: this._getStroke(options['stroke']) || undefined,
+					rotation: typeof options['rotation'] === 'number' ? options['rotation'] : 0,
+					rotateWithView: typeof options['rotateWithView'] === 'boolean' ? options['rotateWithView'] : false,
+					atlasManager: options['atlasManager'] ? options['atlasManager'] : undefined
+				});
+				return regularShape;
+			} catch (e) {
+				console.log(e);
+			}
+		}
+	}]);
+
+	return AnimatorFactory;
+}();
+
+module.exports = AnimatorFactory;
+
+/***/ })
+
+/******/ });
+});
 //# sourceMappingURL=AnimatorFactory.js.map
