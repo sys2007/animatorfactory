@@ -126,7 +126,7 @@ var AnimatorFactory = function () {
 		_classCallCheck(this, AnimatorFactory);
 
 		this.json = json;
-		this.fps = fps || 30;
+		this.fps = fps || 24;
 		this.plot = plot;
 		this.turf = turf;
 		this.map = qmap;
@@ -241,18 +241,23 @@ var AnimatorFactory = function () {
 		}
 
 		/*开始动画的方法， 
-      参数：一个布尔值
+      参数：_fps 当前从第几帧开始播放，
+      			finished 是否循环播放，true 不循环 
       true表示动画不循环执行。  
      */
 
 	}, {
 		key: 'start',
-		value: function start(finished) {
+		value: function start() {
+			var _fps = arguments.length > 0 && arguments[0] !== undefined ? arguments[0] : 0;
+
+			var finished = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : true;
+
 			var now = void 0;
 			var then = Date.now();
 			var interval = 1000 / this.fps;
 			var delta = void 0;
-			var currentFps = 0; //当前帧数
+			var currentFps = _fps; //当前帧数
 
 			/*动画开始时间*/
 			var startTime = Date.now();
@@ -361,6 +366,9 @@ var AnimatorFactory = function () {
 					if (style_) {
 						p.setStyle(style_);
 					}
+				} else if (element.styleName) {
+					this.plot.plotDraw.feature = p;
+					this.plot.plotDraw.setStyle4Name(element.styleName);
 				}
 			}
 		}
