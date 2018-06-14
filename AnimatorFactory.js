@@ -186,9 +186,9 @@ var AnimatorFactory = function () {
 							} else if (element.styleName) {
 								_element.styleName = element.styleName;
 							}
-							// _element.keyPoint = element.keyPoints1
-							// stepFpsArr[x].push(_element)
-							// continue
+							_element.keyPoint = element.keyPoints1;
+							stepFpsArr[x].push(_element);
+							continue;
 						}
 						/** 元素的最后帧，一般是下图 **/
 						if (x === element.runTime * thatFps - 1) {
@@ -223,7 +223,7 @@ var AnimatorFactory = function () {
 								line = turf.lineString(element.track);
 								distance = turf.length(line, options);
 								phr = distance / (element.runTime * thatFps);
-								keyPointArr = turf.along(line, phr * (x - element.delay * thatFps + 1), options).geometry.coordinates; // 取线上指定距离的点
+								keyPointArr = [turf.along(line, phr * (x - element.delay * thatFps), options).geometry.coordinates]; // 取线上指定距离的点
 							}
 						} else {
 							for (var i = 0; i < pointArr1.length; i++) {
@@ -235,7 +235,7 @@ var AnimatorFactory = function () {
 									keyPointArr[i] = point1.geometry.coordinates;
 								} else {
 									phr = distance / (element.runTime * thatFps);
-									keyPointArr[i] = turf.along(line, phr * (x - element.delay * thatFps + 1), options).geometry.coordinates; // 取线上指定距离的点
+									keyPointArr[i] = turf.along(line, phr * (x - element.delay * thatFps), options).geometry.coordinates; // 取线上指定距离的点
 								}
 							}
 						}
@@ -300,7 +300,7 @@ var AnimatorFactory = function () {
 					now = Date.now();
 					delta = now - then;
 					if (delta > interval) {
-						//then = now// - (delta % interval)
+						then = now; // - (delta % interval)
 						self.currentFps++;
 						//self.progress(self.currentFps,self.easing(p), p)   //执行动画回调函数，并传入动画算子的结果和动画进度。
 						self.progress(self.currentFps, self.easing(p), p);
