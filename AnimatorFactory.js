@@ -135,6 +135,8 @@ var AnimatorFactory = function () {
 			return p;
 		};
 		this.duration = 1;
+		this.requestID;
+		this.currentFps = 0; //当前帧数
 	}
 
 	/**
@@ -145,12 +147,11 @@ var AnimatorFactory = function () {
 	_createClass(AnimatorFactory, [{
 		key: 'initAnalysis',
 		value: function initAnalysis(json) {
-			// console.log(ol.style.Fill)
 			json = json || this.json;
 			var schema = JSON.parse(json); // 预案JSON对象
-			this.duration = schema.totalTime * 1000;
+			this.duration = schema.totalTime * 1000; //播放时长
 			var steps = schema.steps; // 预案步骤列表
-			var thatFps = this.fps; // 当前播放帧数
+			var thatFps = this.fps; // 每秒播放帧数
 			var turf = this.turf; // turf对象
 			var schemaArr = []; //返回预案按帧播放列表对象
 			/** 遍历步骤列表生成每帧待播放元素集合对象 **/
@@ -158,17 +159,15 @@ var AnimatorFactory = function () {
 				var totalTime = step.stepTotalTime; // 当前步骤的播放时长
 				var totalFps = totalTime * thatFps; // 当前步骤总的播放帧数
 				var elements = step.elements; // 当前步骤的所有元素列表
-				var stepFpsArr = Array.apply(null, Array(totalFps)); // 当前步骤每帧要完成的元素信息
-				//stepFpsArr.length = totalFps
+				var stepFpsArr = Array.apply(null, Array(totalFps)); // 用null填充当前步骤总帧数
 				/** 遍历元素列表按帧生成元素关键信息 **/
 				elements.forEach(function (element, _key) {
-					//console.log(element.delay +','+ element.runTime)
-					//console.log(element.delay + element.runTime)
-					if (element.runTime === 0) {}
-					//当没有播放时长时的处理	
-
+					if (!element.runTime || element.runTime === 0) {
+						//当没有播放时长时的处理
+						element.runTime = totalTime - element.delay;
+					}
 					/** 当前元素按帧生成关系信息对象 **/
-					for (var x = element.delay * thatFps; x < (element.delay + element.runTime) * thatFps; x++) {
+					for (var x = element.delay * thatFps, length_ = (element.delay + element.runTime) * thatFps; x < length_; x++) {
 						var _element = {}; // 每帧要播放的元素信息
 						if (!stepFpsArr[x]) {
 							stepFpsArr[x] = new Array();
@@ -187,37 +186,57 @@ var AnimatorFactory = function () {
 							} else if (element.styleName) {
 								_element.styleName = element.styleName;
 							}
+							// _element.keyPoint = element.keyPoints1
+							// stepFpsArr[x].push(_element)
+							// continue
 						}
 						/** 元素的最后帧，一般是下图 **/
 						if (x === element.runTime * thatFps - 1) {
 							if (element.isRemove) {
 								_element.action = 'delete';
+								stepFpsArr[x].push(_element);
+								continue;
 							}
 						}
+						/** 如果元素什么都不变，就认为是静态元素，上完图就不考虑了。*/
+						/** //注意：如果从中间开始播放，这类元素应该是无法上图的 */
 						if (_element.action === 'none') {
 							stepFpsArr[x].push(_element);
 							continue;
 						}
-						var point1 = void 0; //当前元素关键点1的一个点
-						var point2 = void 0; //当前元素关键点2的对应点
+						var point1 = void 0; //当前元素关键点1的对应一点
+						var point2 = void 0; //当前元素关键点2的对应一点
 						var distance = void 0; //两点间的距离
 						var line = void 0; //两个对应点生成的线对象
 						var phr = void 0; //每帧对应线上的实际距离
 						var options = { units: 'meters' };
 						var pointArr1 = element.keyPoints1; // 当前元素的关键点1
 						var pointArr2 = element.keyPoints2; // 当前元素的关键点2
-						var keyPointArr = []; //当前帧的关关键点对象
-						/** 遍历关键点以生成关键点1和关键点2之间相对应的点的变化信息 主要针对多边形的变化，暂不涉及轨迹的播放 **/
-						for (var i = 0; i < pointArr1.length; i++) {
-							point1 = turf.point(pointArr1[i]);
-							point2 = turf.point(pointArr2[i]);
-							distance = turf.distance(point1, point2, options);
-							line = turf.lineString([pointArr1[i], pointArr2[i]]);
-							if (distance < 10) {
-								keyPointArr[i] = point1.geometry.coordinates;
-							} else {
+						var keyPointArr = []; //当前帧的关键点对象
+						/** 遍历关键点以生成关键点1和关键点2之间相对应的点的变化信息 主要针对多边形的变化，**/
+						/** 当无变化或只有一个状态或两个状态相同时应该是没有发生变形和位移 */
+						if (!element.isChange || !pointArr2 || pointArr2.join(',') === pointArr1.join(',')) {
+							keyPointArr = pointArr1;
+						} else if (element.track) {
+							if (element.track != 'elementId') {
+								// 找到线对象
+								line = turf.lineString(element.track);
+								distance = turf.length(line, options);
 								phr = distance / (element.runTime * thatFps);
-								keyPointArr[i] = turf.along(line, phr * (x - element.delay + 1), options).geometry.coordinates; // 取线上指定距离的点
+								keyPointArr = turf.along(line, phr * (x - element.delay * thatFps + 1), options).geometry.coordinates; // 取线上指定距离的点
+							}
+						} else {
+							for (var i = 0; i < pointArr1.length; i++) {
+								point1 = turf.point(pointArr1[i]);
+								point2 = turf.point(pointArr2[i]);
+								distance = turf.distance(point1, point2, options);
+								line = turf.lineString([pointArr1[i], pointArr2[i]]);
+								if (distance < 1) {
+									keyPointArr[i] = point1.geometry.coordinates;
+								} else {
+									phr = distance / (element.runTime * thatFps);
+									keyPointArr[i] = turf.along(line, phr * (x - element.delay * thatFps + 1), options).geometry.coordinates; // 取线上指定距离的点
+								}
 							}
 						}
 						_element.keyPoint = keyPointArr;
@@ -259,7 +278,7 @@ var AnimatorFactory = function () {
 			var then = Date.now();
 			var interval = 1000 / this.fps;
 			var delta = void 0;
-			var currentFps = _fps; //当前帧数
+			this.currentFps = _fps;
 
 			/*动画开始时间*/
 			var startTime = Date.now();
@@ -277,16 +296,16 @@ var AnimatorFactory = function () {
 
 				/*判断动画进度是否完成*/
 				// if(p < 1.0) {
-				if (currentFps < self.getAnimatArr().length) {
+				if (self.currentFps < self.getAnimatArr().length) {
 					now = Date.now();
 					delta = now - then;
 					if (delta > interval) {
 						//then = now// - (delta % interval)
-						currentFps++;
-						//self.progress(currentFps,self.easing(p), p)   //执行动画回调函数，并传入动画算子的结果和动画进度。
-						self.progress(currentFps, self.easing(p), p);
+						self.currentFps++;
+						//self.progress(self.currentFps,self.easing(p), p)   //执行动画回调函数，并传入动画算子的结果和动画进度。
+						self.progress(self.currentFps, self.easing(p), p);
 						then = Date.now();
-						// console.log(currentFps)
+						// console.log(self.currentFps)
 					} // 否则跳过此帧不播
 				} else {
 					if (finished) {
@@ -294,15 +313,50 @@ var AnimatorFactory = function () {
 						next = false;
 					} else {
 						next = true;
-						currentFps = 0; //重置当前帧数
+						self.currentFps = 0; //重置当前帧数
 						startTime = Date.now();
 					}
 					console.log('startTime_end....' + (Date.now() - startTime));
-					// console.log(currentFps)
+					// console.log(self.currentFps)
 				}
 				// 如果next是true执行下一帧动画
-				if (next) requestAnimationFrame(step);
+				if (next) {
+					// console.log(self.currentFps) 会重新执行某一帧        	
+					self.requestID = requestAnimationFrame(step);
+				}
 			});
+		}
+
+		/**
+  	* 暂停播放
+  	*/
+
+	}, {
+		key: 'pause',
+		value: function pause() {
+			cancelAnimationFrame(this.requestID);
+		}
+
+		/**
+  	* 继续播放
+  	*/
+
+	}, {
+		key: 'restart',
+		value: function restart() {
+			this.start(this.requestID);
+		}
+
+		/**
+  	* 停止播放
+  	*/
+
+	}, {
+		key: 'stop',
+		value: function stop() {
+			this.currentFps = 0;
+			this.map.clearMap();
+			cancelAnimationFrame(this.requestID);
 		}
 
 		/**
@@ -394,6 +448,7 @@ var AnimatorFactory = function () {
 			if (!element) {
 				return;
 			}
+			/** //注意：如果从中间开始播放，这类元素应该是无法上图的 */
 			if (element.action === 'none') {
 				return;
 			}
@@ -430,6 +485,7 @@ var AnimatorFactory = function () {
 				}
 				return;
 			}
+			/** //注意：如果从中间开始播放，这类元素应该是无法上图的 */
 			if (p) {
 				p.getGeometry().setCoordinates(arr);
 			}
