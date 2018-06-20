@@ -209,6 +209,7 @@ var AnimatorFactory = function () {
 						var point2 = void 0; //当前元素关键点2的对应一点
 						var distance = void 0; //两点间的距离
 						var line = void 0; //两个对应点生成的线对象
+						var _line = void 0; //临时轨迹对象
 						var phr = void 0; //每帧对应线上的实际距离
 						var options = { units: 'meters' };
 						var pointArr1 = element.keyPoints1; // 当前元素的关键点1
@@ -220,13 +221,27 @@ var AnimatorFactory = function () {
 							keyPointArr = pointArr1;
 						} else if (element.track) {
 							if (element.track != 'elementId') {
-								// 找到线对象
+								// 找到轨迹对象
 								line = turf.lineString(element.track);
 								distance = turf.length(line, options);
 								phr = distance / (element.runTime * thatFps);
 								keyPointArr = [turf.along(line, phr * (x - element.delay * thatFps), options).geometry.coordinates]; // 取线上指定距离的点
+								if (x - element.delay * thatFps > 0) {
+									// 注意： 此处可以优化?
+									for (var k = 1, len = element.track.length; k < len; k++) {
+										_line = turf.lineString(element.track.slice(0, k + 1));
+										if (turf.length(_line, options) >= phr * (x - element.delay * thatFps)) {
+											var dx = element.track[k][0] - element.track[k - 1][0];
+											var dy = element.track[k][1] - element.track[k - 1][1];
+											_element.angle = Math.atan2(dy, dx);
+											_element.angle = _element.angle === 0 ? 0 : -_element.angle;
+											break;
+										}
+									}
+								}
 							}
 						} else {
+							/** 遍历几个关键点生成每一帧对应新的关键点 **/
 							for (var i = 0; i < pointArr1.length; i++) {
 								point1 = turf.point(pointArr1[i]);
 								point2 = turf.point(pointArr2[i]);
@@ -361,7 +376,7 @@ var AnimatorFactory = function () {
 		key: 'stop',
 		value: function stop() {
 			this.currentFps = 0;
-			this.map.clearMap();
+			// this.map.clearMap()
 			cancelAnimationFrame(this.requestID);
 		}
 
@@ -501,6 +516,9 @@ var AnimatorFactory = function () {
 			}
 			/** //注意：如果从中间开始播放，这类元素应该是无法上图的 */
 			if (p) {
+				if (element.angle != null) {
+					p.getStyle().getImage().setRotation(element.angle);
+				}
 				p.getGeometry().setCoordinates(arr);
 			}
 		}
