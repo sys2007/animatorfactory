@@ -141,6 +141,7 @@ var AnimatorFactory = function () {
 
 	/**
  	* 解析json文件
+ 	* 目的就是生成schemaArr列表，每一帧要创建的元素（关键坐标，类型，样式，上图/下图/不变）
  	*/
 
 
@@ -238,6 +239,11 @@ var AnimatorFactory = function () {
 									keyPointArr[i] = turf.along(line, phr * (x - element.delay * thatFps), options).geometry.coordinates; // 取线上指定距离的点
 								}
 							}
+						}
+						if (element.elementType === 'TextArea') {
+							_element.width = element.width;
+							_element.height = element.height;
+							_element.value = element.value;
 						}
 						_element.keyPoint = keyPointArr;
 						stepFpsArr[x].push(_element);
@@ -408,6 +414,11 @@ var AnimatorFactory = function () {
 			}
 			// elementId elementType keyPoints1 style
 			var p = void 0;
+			if (element.elementType === 'TextArea') {
+				//文本对象的处理
+				this.plot.plotDraw.createTextArea(element.elementType, element);
+				return;
+			}
 			var arrow = this.plot.plotDraw.createPlot(element.elementType);
 			arrow.setPoints(element.keyPoints1);
 			// let arr = arrow.getCoordinates()
@@ -459,6 +470,9 @@ var AnimatorFactory = function () {
 			//let p = this.map.getFeatureById2LayerName(this.layer,element.id)
 			var p = this.map.getFeatureById(element.id);
 			var arrow = this.plot.plotDraw.createPlot(element.type);
+			if (arrow === 'TextArea') {
+				arrow = this.plot.plotDraw.createPlot('Point');
+			}
 			arrow.setPoints(element.keyPoint);
 			var arr = arrow.getCoordinates();
 			if (element.action === 'add') {
@@ -512,7 +526,12 @@ var AnimatorFactory = function () {
 						layerName: this.layer,
 						zoomToExtent: false
 					});
-				} else if (type === 'PlotText' || type === 'TextArea' || type === 'PlotTextBox') {} else {
+				} else if (type === 'PlotText' || type === 'TextArea' || type === 'PlotTextBox') {
+					p = this.map.addPoint(arr.join(','), {
+						layerName: this.layer,
+						zoomToExtent: false
+					});
+				} else {
 					p = this.map.addPolygon(arr.join(','), {
 						layerName: this.layer,
 						zoomToExtent: false
@@ -639,7 +658,7 @@ var AnimatorFactory = function () {
 				var image = void 0;
 				options = options || {};
 				if (options['type'] === 'icon') {
-					image = this._getIcon(options['image']);
+					image = this._getIcon(options);
 				} else {
 					image = this._getRegularShape(options['image']);
 				}
