@@ -113,12 +113,13 @@ var _createClass = function () { function defineProperties(target, props) { for 
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
 /*
-  json 参数1：预案的json格式信息
-  qmap 参数2：当前地图对象
-  plot 参数3：标绘对象实例 
-  turf 参数4：工具对象实例
-  layerName 参数5： 图层名
-  fps  参数6：每秒帧数，默认24
+ * 20180621 lss
+ * json 参数1：预案的json格式信息
+ * qmap 参数2：当前地图对象
+ * plot 参数3：标绘对象实例 
+ * turf 参数4：工具对象实例
+ * layerName 参数5： 图层名
+ * fps  参数6：每秒帧数，默认24
  */
 
 var AnimatorFactory = function () {
@@ -137,11 +138,14 @@ var AnimatorFactory = function () {
 		this.duration = 1;
 		this.requestID;
 		this.currentFps = 0; //当前帧数
+		this.startFps = 0; //默认从第0帧开始播放
 	}
 
 	/**
  	* 解析json文件
  	* 目的就是生成schemaArr列表，每一帧要创建的元素（关键坐标，类型，样式，上图/下图/不变）
+ 	* 改为初始化时生成元素对象，
+ 	* 20180621 lss 
  	*/
 
 
@@ -192,7 +196,7 @@ var AnimatorFactory = function () {
 							continue;
 						}
 						/** 元素的最后帧，一般是下图 **/
-						if (x === element.runTime * thatFps - 1) {
+						if (x === (element.delay + element.runTime) * thatFps - 1) {
 							if (element.isRemove) {
 								_element.action = 'delete';
 								stepFpsArr[x].push(_element);
@@ -300,6 +304,7 @@ var AnimatorFactory = function () {
 			var interval = 1000 / this.fps;
 			var delta = void 0;
 			this.currentFps = _fps;
+			this.startFps = _fps;
 
 			/*动画开始时间*/
 			var startTime = Date.now();
@@ -323,10 +328,8 @@ var AnimatorFactory = function () {
 					if (delta > interval) {
 						then = now; // - (delta % interval)
 						self.currentFps++;
-						//self.progress(self.currentFps,self.easing(p), p)   //执行动画回调函数，并传入动画算子的结果和动画进度。
-						self.progress(self.currentFps, self.easing(p), p);
+						self.progress(self.currentFps, self.easing(p), p); //执行动画回调函数，并传入动画算子的结果和动画进度。
 						then = Date.now();
-						// console.log(self.currentFps)
 					} // 否则跳过此帧不播
 				} else {
 					if (finished) {
@@ -338,7 +341,6 @@ var AnimatorFactory = function () {
 						startTime = Date.now();
 					}
 					console.log('startTime_end....' + (Date.now() - startTime));
-					// console.log(self.currentFps)
 				}
 				// 如果next是true执行下一帧动画
 				if (next) {
@@ -456,7 +458,7 @@ var AnimatorFactory = function () {
 		}
 
 		/**
-  	* 播放函数
+  	* 播放函数具体的实现方法
   	* currentFps 参数1：当前帧数，从1开始
   	*/
 
@@ -475,7 +477,7 @@ var AnimatorFactory = function () {
 				return;
 			}
 			/** //注意：如果从中间开始播放，这类元素应该是无法上图的 */
-			if (element.action === 'none') {
+			if (this.startFps === 0 && element.action === 'none') {
 				return;
 			}
 			if (element.action === 'delete') {
