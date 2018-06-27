@@ -191,8 +191,8 @@ var AnimatorFactory = function () {
 							}
 						}
 
-						//步骤的最后一秒，步骤元素下图
-						if (x === totalFps - thatFps + 1) {
+						//步骤的最后一帧，步骤元素下图
+						if (x === totalFps - 1) {
 							_element.action = 'delete';
 							stepFpsArr[x].push(_element);
 							break;
@@ -370,7 +370,7 @@ var AnimatorFactory = function () {
 					delta = now - then;
 					if (delta > interval) {
 						then = now; // - (delta % interval)
-						self.currentFps++;
+						self.currentFps = self.currentFps + 1;
 						self.progress(self.currentFps, self.easing(p), p); //执行动画回调函数，并传入动画算子的结果和动画进度。
 						then = Date.now();
 					} // 否则跳过此帧不播
