@@ -159,6 +159,7 @@ var AnimatorFactory = function () {
 			var thatFps = this.fps; // 每秒播放帧数
 			var turf = this.turf; // turf对象
 			var schemaArr = []; //返回预案按帧播放列表对象
+			var _elements_first_fps = {}; //保存元素的第一帧
 			/** 遍历步骤列表生成每帧待播放元素集合对象 **/
 			steps.forEach(function (step, key) {
 				var totalTime = step.stepTotalTime; // 当前步骤的播放时长
@@ -172,7 +173,7 @@ var AnimatorFactory = function () {
 						element.runTime = totalTime - element.delay;
 					}
 					/** 当前元素按帧生成关系信息对象 **/
-					for (var x = element.delay * thatFps, length_ = (element.delay + element.runTime) * thatFps; x < length_; x++) {
+					for (var x = element.delay * thatFps; x < totalFps; x++) {
 						var _element = {}; // 每帧要播放的元素信息
 						if (!stepFpsArr[x]) {
 							stepFpsArr[x] = new Array();
@@ -180,9 +181,39 @@ var AnimatorFactory = function () {
 						_element.action = 'none';
 						_element.type = element.elementType;
 						_element.id = element.elementId;
+
 						if (element.isChange) {
 							_element.action = 'update';
+							if (element.style) {
+								_element.style = element.style;
+							} else if (element.styleName) {
+								_element.styleName = element.styleName;
+							}
 						}
+
+						//步骤的最后一秒，步骤元素下图
+						if (x === totalFps - thatFps + 1) {
+							_element.action = 'delete';
+							stepFpsArr[x].push(_element);
+							break;
+						}
+
+						/** 元素的最后帧，一般是下图 **/
+						if (x === (element.delay + element.runTime) * thatFps - 1) {
+							if (element.isRemove) {
+								_element.action = 'delete';
+								stepFpsArr[x].push(_element);
+								break;
+							} else if (element.isChange) {
+								//如果元素不下图，则更新第一帧为元素形变的最后状态
+								element.isChange = false;
+								_element.keyPoint = element.keyPoints2;
+								_elements_first_fps[element.elementId] = _element;
+								stepFpsArr[x].push(_element);
+								continue;
+							}
+						}
+
 						/** 元素的第一帧，一般是上图 **/
 						if (x === element.delay * thatFps) {
 							_element.action = 'add';
@@ -193,22 +224,23 @@ var AnimatorFactory = function () {
 							}
 							_element.keyPoint = element.keyPoints1;
 							stepFpsArr[x].push(_element);
+							_elements_first_fps[_element.id] = _element;
 							continue;
 						}
-						/** 元素的最后帧，一般是下图 **/
-						if (x === (element.delay + element.runTime) * thatFps - 1) {
-							if (element.isRemove) {
-								_element.action = 'delete';
-								stepFpsArr[x].push(_element);
-								continue;
-							}
-						}
-						/** 如果元素什么都不变，就认为是静态元素，上完图就不考虑了。*/
-						/** //注意：如果从中间开始播放，这类元素应该是无法上图的 */
+
+						/** 如果元素什么都不变，就认为是静态元素，上完图后元素关键点与样式均与第一帧相同。*/
 						if (_element.action === 'none') {
+							var _element_first_fps = _elements_first_fps[_element.id];
+							if (_element_first_fps.style) {
+								_element.style = _element_first_fps.style;
+							} else if (_element_first_fps.styleName) {
+								_element.styleName = _element_first_fps.styleName;
+							}
+							_element.keyPoint = _element_first_fps.keyPoint;
 							stepFpsArr[x].push(_element);
 							continue;
 						}
+
 						var point1 = void 0; //当前元素关键点1的对应一点
 						var point2 = void 0; //当前元素关键点2的对应一点
 						var distance = void 0; //两点间的距离
@@ -273,6 +305,7 @@ var AnimatorFactory = function () {
 				});
 			});
 			this.setAnimatArr(schemaArr);
+			this.setFirstFpsElementMap(_elements_first_fps);
 			return schemaArr;
 		}
 	}, {
@@ -284,6 +317,16 @@ var AnimatorFactory = function () {
 		key: 'getAnimatArr',
 		value: function getAnimatArr() {
 			return this.animatArr;
+		}
+	}, {
+		key: 'setFirstFpsElementMap',
+		value: function setFirstFpsElementMap(firstFpsElementMap) {
+			this.firstFpsElementMap = firstFpsElementMap;
+		}
+	}, {
+		key: 'getFirstFpsElement',
+		value: function getFirstFpsElement(id) {
+			return this.firstFpsElementMap[id];
 		}
 
 		/*开始动画的方法， 
@@ -473,17 +516,25 @@ var AnimatorFactory = function () {
     * .keyPoint 点对象 数组
     * .style 
    */
+			var addFlag = false;
 			if (!element) {
 				return;
 			}
-			/** //注意：如果从中间开始播放，这类元素应该是无法上图的 */
-			if (this.startFps === 0 && element.action === 'none') {
-				return;
+
+			/** 如果从中间开始播放，若地图上无此元素则令添加标志为真*/
+			if (element.action === 'none') {
+				if (this.startFps === 0) {
+					return;
+				} else if (!this.map.getFeatureById(element.id)) {
+					addFlag = true;
+				}
 			}
+
 			if (element.action === 'delete') {
 				this.map.removeFeatureById(element.id);
 				return;
 			}
+
 			//let p = this.map.getFeatureById2LayerName(this.layer,element.id)
 			var p = this.map.getFeatureById(element.id);
 			var arrow = this.plot.plotDraw.createPlot(element.type);
@@ -492,7 +543,8 @@ var AnimatorFactory = function () {
 			}
 			arrow.setPoints(element.keyPoint);
 			var arr = arrow.getCoordinates();
-			if (element.action === 'add') {
+			//当元素动作是添加、更新或者添加标志为真时，更新元素
+			if (element.action === 'add' || element.action === 'update' || addFlag) {
 				if (p) {
 					p.getGeometry().setCoordinates(arr);
 				} else {
