@@ -158,25 +158,26 @@ var AnimatorFactory = function () {
 			var steps = schema.steps; // 预案步骤列表
 			var thatFps = this.fps; // 每秒播放帧数
 			var turf = this.turf; // turf对象
-			var schemaArr = []; //返回预案按帧播放列表对象
+			var schemaTotalFps = schema.totalTime * thatFps; //预案播放总帧数
+			var schemaArr = Array.apply(null, Array(schemaTotalFps)); //返回预案按帧播放列表对象,用null填充当前步骤总帧数
 			var _elements_first_fps = {}; //保存元素的第一帧
+			var prevStepFps = 0; //记录前一步骤的播放总帧数
 			/** 遍历步骤列表生成每帧待播放元素集合对象 **/
 			steps.forEach(function (step, key) {
 				var totalTime = step.stepTotalTime; // 当前步骤的播放时长
 				var totalFps = totalTime * thatFps; // 当前步骤总的播放帧数
 				var elements = step.elements; // 当前步骤的所有元素列表
-				var stepFpsArr = Array.apply(null, Array(totalFps)); // 用null填充当前步骤总帧数
 				/** 遍历元素列表按帧生成元素关键信息 **/
 				elements.forEach(function (element, _key) {
 					if (!element.runTime || element.runTime === 0) {
 						//当没有播放时长时的处理
-						element.runTime = totalTime - element.delay;
+						element.runTime = (schemaTotalFps - prevStepFps) / thatFps - element.delay;
 					}
 					/** 当前元素按帧生成关系信息对象 **/
-					for (var x = element.delay * thatFps; x < totalFps; x++) {
+					for (var x = prevStepFps + element.delay * thatFps; x < schemaTotalFps; x++) {
 						var _element = {}; // 每帧要播放的元素信息
-						if (!stepFpsArr[x]) {
-							stepFpsArr[x] = new Array();
+						if (!schemaArr[x]) {
+							schemaArr[x] = new Array();
 						}
 						_element.action = 'none';
 						_element.type = element.elementType;
@@ -191,31 +192,40 @@ var AnimatorFactory = function () {
 							}
 						}
 
-						//步骤的最后一帧，步骤元素下图
-						if (x === totalFps - 1) {
+						//最后一帧，元素下图
+						if (x === schemaTotalFps - 1) {
 							_element.action = 'delete';
-							stepFpsArr[x].push(_element);
+							schemaArr[x].push(_element);
 							break;
 						}
 
 						/** 元素的最后帧，一般是下图 **/
-						if (x === (element.delay + element.runTime) * thatFps - 1) {
+						if (x === prevStepFps + (element.delay + element.runTime) * thatFps - 1) {
 							if (element.isRemove) {
 								_element.action = 'delete';
-								stepFpsArr[x].push(_element);
+								schemaArr[x].push(_element);
 								break;
 							} else if (element.isChange) {
 								//如果元素不下图，则更新第一帧为元素形变的最后状态
 								element.isChange = false;
 								_element.keyPoint = element.keyPoints2;
 								_elements_first_fps[element.elementId] = _element;
-								stepFpsArr[x].push(_element);
+								schemaArr[x].push(_element);
 								continue;
 							}
 						}
 
 						/** 元素的第一帧，一般是上图 **/
-						if (x === element.delay * thatFps) {
+						if (x === prevStepFps + element.delay * thatFps) {
+							//在上图时判断是否为导入元素，从第2步骤开始判断，如果为导入元素并且旧元素存在，更新旧元素状态为'delete'
+							if (prevStepFps != 0 && element.oldElementId) {
+								var oldIndex = schemaArr[x].findIndex(function (el) {
+									return el.id == element.oldElementId;
+								});
+								if (oldIndex != -1) {
+									schemaArr[x][oldIndex].action = 'delete';
+								}
+							}
 							_element.action = 'add';
 							if (element.style) {
 								_element.style = element.style;
@@ -223,7 +233,8 @@ var AnimatorFactory = function () {
 								_element.styleName = element.styleName;
 							}
 							_element.keyPoint = element.keyPoints1;
-							stepFpsArr[x].push(_element);
+							schemaArr[x].push(_element);
+
 							_elements_first_fps[_element.id] = _element;
 							continue;
 						}
@@ -237,7 +248,7 @@ var AnimatorFactory = function () {
 								_element.styleName = _element_first_fps.styleName;
 							}
 							_element.keyPoint = _element_first_fps.keyPoint;
-							stepFpsArr[x].push(_element);
+							schemaArr[x].push(_element);
 							continue;
 						}
 
@@ -257,23 +268,19 @@ var AnimatorFactory = function () {
 							keyPointArr = pointArr1;
 						} else if (element.track) {
 							if (element.track != 'elementId') {
-								// 找到轨迹对象
-								line = turf.lineString(element.track);
+								// 找到轨迹对象，若设置了起始点，则截取轨迹对象
+								line = turf.lineSlice(turf.point(pointArr1[0]), turf.point(pointArr2[0]), turf.lineString(element.track));
 								distance = turf.length(line, options);
 								phr = distance / (element.runTime * thatFps);
-								keyPointArr = [turf.along(line, phr * (x - element.delay * thatFps), options).geometry.coordinates]; // 取线上指定距离的点
-								if (x - element.delay * thatFps > 0) {
-									// 注意： 此处可以优化?
-									for (var k = 1, len = element.track.length; k < len; k++) {
-										_line = turf.lineString(element.track.slice(0, k + 1));
-										if (turf.length(_line, options) >= phr * (x - element.delay * thatFps)) {
-											var dx = element.track[k][0] - element.track[k - 1][0];
-											var dy = element.track[k][1] - element.track[k - 1][1];
-											_element.angle = Math.atan2(dy, dx);
-											_element.angle = _element.angle === 0 ? 0 : -_element.angle;
-											break;
-										}
-									}
+								keyPointArr = [turf.along(line, phr * (x - prevStepFps - element.delay * thatFps), options).geometry.coordinates]; // 取线上指定距离的点
+
+								// 此处可优化
+								_element.angle = Math.round(turf.rhumbBearing(turf.point(keyPointArr[0]), turf.point(keyPointArr[keyPointArr.length - 1])));
+								if (element.angle && element.angle === _element.angle) {
+									_element.angle = null;
+								}
+								if (_element.angle != null) {
+									element.angle = _element.angle;
 								}
 							}
 						} else {
@@ -287,7 +294,7 @@ var AnimatorFactory = function () {
 									keyPointArr[i] = point1.geometry.coordinates;
 								} else {
 									phr = distance / (element.runTime * thatFps);
-									keyPointArr[i] = turf.along(line, phr * (x - element.delay * thatFps), options).geometry.coordinates; // 取线上指定距离的点
+									keyPointArr[i] = turf.along(line, phr * (x - prevStepFps - element.delay * thatFps), options).geometry.coordinates; // 取线上指定距离的点
 								}
 							}
 						}
@@ -297,12 +304,10 @@ var AnimatorFactory = function () {
 							_element.value = element.value;
 						}
 						_element.keyPoint = keyPointArr;
-						stepFpsArr[x].push(_element);
+						schemaArr[x].push(_element);
 					}
 				});
-				stepFpsArr.forEach(function (stepFps, _key_) {
-					schemaArr.push(stepFps);
-				});
+				prevStepFps = prevStepFps + totalFps;
 			});
 			this.setAnimatArr(schemaArr);
 			this.setFirstFpsElementMap(_elements_first_fps);
@@ -566,14 +571,10 @@ var AnimatorFactory = function () {
 						this.plot.plotDraw.setStyle4Name(element.styleName);
 					}
 				}
-				return;
-			}
-			/** //注意：如果从中间开始播放，这类元素应该是无法上图的 */
-			if (p) {
 				if (element.angle != null) {
 					p.getStyle().getImage().setRotation(element.angle);
 				}
-				p.getGeometry().setCoordinates(arr);
+				return;
 			}
 		}
 
