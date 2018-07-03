@@ -161,12 +161,13 @@ var AnimatorFactory = function () {
 			var schemaTotalFps = schema.totalTime * thatFps; //预案播放总帧数
 			var schemaArr = Array.apply(null, Array(schemaTotalFps)); //返回预案按帧播放列表对象,用null填充当前步骤总帧数
 			var _elements_first_fps = {}; //保存元素的第一帧
-			var prevStepFps = 0; //记录前一步骤的播放总帧数
+			var prevStepFps = schemaTotalFps; //记录前一步骤的播放总帧数
 			/** 遍历步骤列表生成每帧待播放元素集合对象 **/
-			steps.forEach(function (step, key) {
-				var totalTime = step.stepTotalTime; // 当前步骤的播放时长
+			for (var indx = steps.length - 1; indx >= 0; indx--) {
+				var totalTime = steps[indx].stepTotalTime; // 当前步骤的播放时长
 				var totalFps = totalTime * thatFps; // 当前步骤总的播放帧数
-				var elements = step.elements; // 当前步骤的所有元素列表
+				var elements = steps[indx].elements; // 当前步骤的所有元素列表
+				prevStepFps = prevStepFps - totalFps;
 				/** 遍历元素列表按帧生成元素关键信息 **/
 				elements.forEach(function (element, _key) {
 					if (!element.runTime || element.runTime === 0) {
@@ -199,6 +200,15 @@ var AnimatorFactory = function () {
 							break;
 						}
 
+						/** 新元素被添加时，旧元素下图 **/
+						if (element.delFtp) {
+							if (x === element.delFtp) {
+								_element.action = 'delete';
+								schemaArr[x].push(_element);
+								break;
+							}
+						}
+
 						/** 元素的最后帧，一般是下图 **/
 						if (x === prevStepFps + (element.delay + element.runTime) * thatFps - 1) {
 							if (element.isRemove) {
@@ -217,13 +227,11 @@ var AnimatorFactory = function () {
 
 						/** 元素的第一帧，一般是上图 **/
 						if (x === prevStepFps + element.delay * thatFps) {
-							//在上图时判断是否为导入元素，从第2步骤开始判断，如果为导入元素并且旧元素存在，更新旧元素状态为'delete'
+							//在上图时判断是否为导入元素，从第2步骤开始判断，如果为导入元素，则设置删除点
 							if (prevStepFps != 0 && element.oldElementId) {
-								var oldIndex = schemaArr[x].findIndex(function (el) {
-									return el.id == element.oldElementId;
-								});
-								if (oldIndex != -1) {
-									schemaArr[x][oldIndex].action = 'delete';
+								var old_element = steps[parseInt(element.oldElementId.split('-')[0]) - 1].elements[parseInt(element.oldElementId.split('-')[1]) - 1];
+								if (old_element) {
+									old_element.delFtp = x;
 								}
 							}
 							_element.action = 'add';
@@ -273,14 +281,30 @@ var AnimatorFactory = function () {
 								distance = turf.length(line, options);
 								phr = distance / (element.runTime * thatFps);
 								keyPointArr = [turf.along(line, phr * (x - prevStepFps - element.delay * thatFps), options).geometry.coordinates]; // 取线上指定距离的点
-
-								// 此处可优化
-								_element.angle = Math.round(turf.rhumbBearing(turf.point(keyPointArr[0]), turf.point(keyPointArr[keyPointArr.length - 1])));
-								if (element.angle && element.angle === _element.angle) {
-									_element.angle = null;
-								}
-								if (_element.angle != null) {
-									element.angle = _element.angle;
+								/*** 
+        // 此处可优化
+        _element.angle = Math.round(turf.rhumbBearing(turf.point(pointArr1[0]), turf.point(keyPointArr[0])))
+        if (element.angle && element.angle === _element.angle) {
+        		_element.angle = null
+        }
+        if (!_element.angle) {
+        		element.angle = _element.angle
+        }
+        */
+								/**暂时还原 */
+								element.track = line.geometry.coordinates;
+								if (x - prevStepFps - element.delay * thatFps > 0) {
+									// 注意： 此处可以优化?
+									for (var k = 1, len = element.track.length; k < len; k++) {
+										_line = turf.lineString(element.track.slice(0, k + 1));
+										if (turf.length(_line, options) >= phr * (x - prevStepFps - element.delay * thatFps)) {
+											var dx = element.track[k][0] - element.track[k - 1][0];
+											var dy = element.track[k][1] - element.track[k - 1][1];
+											_element.angle = Math.atan2(dy, dx);
+											_element.angle = _element.angle === 0 ? 0 : -_element.angle;
+											break;
+										}
+									}
 								}
 							}
 						} else {
@@ -307,8 +331,7 @@ var AnimatorFactory = function () {
 						schemaArr[x].push(_element);
 					}
 				});
-				prevStepFps = prevStepFps + totalFps;
-			});
+			}
 			this.setAnimatArr(schemaArr);
 			this.setFirstFpsElementMap(_elements_first_fps);
 			return schemaArr;
