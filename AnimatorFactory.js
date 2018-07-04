@@ -174,6 +174,27 @@ var AnimatorFactory = function () {
 						//当没有播放时长时的处理
 						element.runTime = (schemaTotalFps - prevStepFps) / thatFps - element.delay;
 					}
+
+					//元素形变整体轨迹与时间无关，放到帧循环外面
+					var line = void 0; //两个对应点生成的线对象
+					var phr = void 0; //每帧对应线上的实际距离
+					var options = { units: 'meters' };
+					var pointArr1 = element.keyPoints1; // 当前元素的关键点1
+					var pointArr2 = element.keyPoints2; // 当前元素的关键点2
+					var actionType = void 0; //形变类型
+					if (!element.isChange || !pointArr2 || pointArr2.join(',') === pointArr1.join(',')) {
+						actionType = 1;
+					} else if (element.track) {
+						if (element.track != 'elementId') {
+							// 找到轨迹对象，若设置了起始点，则截取轨迹对象
+							line = turf.lineSlice(turf.point(pointArr1[0]), turf.point(pointArr2[0]), turf.lineString(element.track));
+							phr = turf.length(line, options) / (element.runTime * thatFps);
+							actionType = 2;
+						}
+					} else {
+						actionType = 3;
+					}
+
 					/** 当前元素按帧生成关系信息对象 **/
 					for (var x = prevStepFps + element.delay * thatFps; x < schemaTotalFps; x++) {
 						var _element = {}; // 每帧要播放的元素信息
@@ -227,11 +248,13 @@ var AnimatorFactory = function () {
 
 						/** 元素的第一帧，一般是上图 **/
 						if (x === prevStepFps + element.delay * thatFps) {
-							//在上图时判断是否为导入元素，从第2步骤开始判断，如果为导入元素，则设置删除点
+							//在上图时判断是否为导入元素，从第2步骤开始判断，如果为导入元素，删除点未设置或删除点大于当前时间点，重设删除点
 							if (prevStepFps != 0 && element.oldElementId) {
 								var old_element = steps[parseInt(element.oldElementId.split('-')[0]) - 1].elements[parseInt(element.oldElementId.split('-')[1]) - 1];
 								if (old_element) {
-									old_element.delFtp = x;
+									if (!old_element.delFtp || old_element.delFtp > x) {
+										old_element.delFtp = x;
+									}
 								}
 							}
 							_element.action = 'add';
@@ -263,62 +286,33 @@ var AnimatorFactory = function () {
 						var point1 = void 0; //当前元素关键点1的对应一点
 						var point2 = void 0; //当前元素关键点2的对应一点
 						var distance = void 0; //两点间的距离
-						var line = void 0; //两个对应点生成的线对象
 						var _line = void 0; //临时轨迹对象
-						var phr = void 0; //每帧对应线上的实际距离
-						var options = { units: 'meters' };
-						var pointArr1 = element.keyPoints1; // 当前元素的关键点1
-						var pointArr2 = element.keyPoints2; // 当前元素的关键点2
+						var _phr = void 0; //每帧对应线上的临时距离
 						var keyPointArr = []; //当前帧的关键点对象
 						/** 遍历关键点以生成关键点1和关键点2之间相对应的点的变化信息 主要针对多边形的变化，**/
 						/** 当无变化或只有一个状态或两个状态相同时应该是没有发生变形和位移 */
-						if (!element.isChange || !pointArr2 || pointArr2.join(',') === pointArr1.join(',')) {
+						if (actionType === 1) {
 							keyPointArr = pointArr1;
-						} else if (element.track) {
-							if (element.track != 'elementId') {
-								// 找到轨迹对象，若设置了起始点，则截取轨迹对象
-								line = turf.lineSlice(turf.point(pointArr1[0]), turf.point(pointArr2[0]), turf.lineString(element.track));
-								distance = turf.length(line, options);
-								phr = distance / (element.runTime * thatFps);
-								keyPointArr = [turf.along(line, phr * (x - prevStepFps - element.delay * thatFps), options).geometry.coordinates]; // 取线上指定距离的点
-								/*** 
-        // 此处可优化
-        _element.angle = Math.round(turf.rhumbBearing(turf.point(pointArr1[0]), turf.point(keyPointArr[0])))
-        if (element.angle && element.angle === _element.angle) {
-        		_element.angle = null
-        }
-        if (!_element.angle) {
-        		element.angle = _element.angle
-        }
-        */
-								/**暂时还原 */
-								element.track = line.geometry.coordinates;
-								if (x - prevStepFps - element.delay * thatFps > 0) {
-									// 注意： 此处可以优化?
-									for (var k = 1, len = element.track.length; k < len; k++) {
-										_line = turf.lineString(element.track.slice(0, k + 1));
-										if (turf.length(_line, options) >= phr * (x - prevStepFps - element.delay * thatFps)) {
-											var dx = element.track[k][0] - element.track[k - 1][0];
-											var dy = element.track[k][1] - element.track[k - 1][1];
-											_element.angle = Math.atan2(dy, dx);
-											_element.angle = _element.angle === 0 ? 0 : -_element.angle;
-											break;
-										}
-									}
-								}
+						} else if (actionType === 2) {
+							var nowPoint = turf.along(line, phr * (x - prevStepFps - element.delay * thatFps), options);
+							keyPointArr = [nowPoint.geometry.coordinates]; // 取线上指定距离的点
+							//记录上一个轨迹点，用于计算偏转角度
+							if (element.lastKeyPointArr) {
+								_element.angle = turf.degreesToRadians(turf.bearingToAzimuth(turf.bearing(element.lastKeyPointArr, nowPoint)));
 							}
+							element.lastKeyPointArr = nowPoint;
 						} else {
 							/** 遍历几个关键点生成每一帧对应新的关键点 **/
 							for (var i = 0; i < pointArr1.length; i++) {
 								point1 = turf.point(pointArr1[i]);
 								point2 = turf.point(pointArr2[i]);
 								distance = turf.distance(point1, point2, options);
-								line = turf.lineString([pointArr1[i], pointArr2[i]]);
+								_line = turf.lineString([pointArr1[i], pointArr2[i]]);
 								if (distance < 1) {
 									keyPointArr[i] = point1.geometry.coordinates;
 								} else {
-									phr = distance / (element.runTime * thatFps);
-									keyPointArr[i] = turf.along(line, phr * (x - prevStepFps - element.delay * thatFps), options).geometry.coordinates; // 取线上指定距离的点
+									_phr = distance / (element.runTime * thatFps);
+									keyPointArr[i] = turf.along(_line, _phr * (x - prevStepFps - element.delay * thatFps), options).geometry.coordinates; // 取线上指定距离的点
 								}
 							}
 						}
