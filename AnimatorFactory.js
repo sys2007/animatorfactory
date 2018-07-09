@@ -214,13 +214,6 @@ var AnimatorFactory = function () {
 							}
 						}
 
-						//最后一帧，元素下图
-						if (x === schemaTotalFps - 1) {
-							_element.action = 'delete';
-							schemaArr[x].push(_element);
-							break;
-						}
-
 						/** 新元素被添加时，旧元素下图 **/
 						if (element.delFtp) {
 							if (x === element.delFtp) {
