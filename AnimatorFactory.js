@@ -482,6 +482,17 @@ var AnimatorFactory = function () {
   	*/
 
 	}, {
+		key: 'addStepFeature',
+		value: function addStepFeature(element) {
+			this._addStepFeature(element);
+		}
+
+		/**
+  	* 添加当前步骤对象中的一个元素上图
+  	* element 参数1：当前元素JSON对象
+  	*/
+
+	}, {
 		key: '_addStepFeature',
 		value: function _addStepFeature(element) {
 			if (!element) {
