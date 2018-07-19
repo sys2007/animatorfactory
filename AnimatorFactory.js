@@ -289,11 +289,14 @@ var AnimatorFactory = function () {
 						} else if (actionType === 2) {
 							var nowPoint = turf.along(line, phr * (x - prevStepFps - element.delay * thatFps), options);
 							keyPointArr = [nowPoint.geometry.coordinates]; // 取线上指定距离的点
-							//记录上一个轨迹点，用于计算偏转角度
-							if (element.lastKeyPointArr) {
-								_element.angle = turf.degreesToRadians(turf.bearingToAzimuth(turf.bearing(element.lastKeyPointArr, nowPoint)));
+							//元素是否随轨迹偏转
+							if (element.isRolate) {
+								//记录上一个轨迹点，用于计算偏转角度
+								if (element.lastKeyPointArr) {
+									_element.angle = turf.degreesToRadians(turf.bearingToAzimuth(turf.bearing(element.lastKeyPointArr, nowPoint)));
+								}
+								element.lastKeyPointArr = nowPoint;
 							}
-							element.lastKeyPointArr = nowPoint;
 						} else {
 							/** 遍历几个关键点生成每一帧对应新的关键点 **/
 							for (var i = 0; i < pointArr1.length; i++) {
