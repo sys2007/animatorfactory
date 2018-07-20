@@ -163,7 +163,8 @@ var AnimatorFactory = function () {
 			var _elements_first_fps = {}; //保存元素的第一帧
 			var prevStepFps = schemaTotalFps; //记录前一步骤的播放总帧数
 			/** 遍历步骤列表生成每帧待播放元素集合对象 **/
-			for (var indx = steps.length - 1; indx >= 0; indx--) {
+
+			var _loop = function _loop(indx) {
 				var totalTime = steps[indx].stepTotalTime; // 当前步骤的播放时长
 				var totalFps = totalTime * thatFps; // 当前步骤总的播放帧数
 				var elements = steps[indx].elements; // 当前步骤的所有元素列表
@@ -172,7 +173,11 @@ var AnimatorFactory = function () {
 				elements.forEach(function (element, _key) {
 					if (!element.runTime || element.runTime === 0) {
 						//当没有播放时长时的处理
-						element.runTime = (schemaTotalFps - prevStepFps) / thatFps - element.delay;
+						if (element.isRemove) {
+							element.runTime = (totalFps - prevStepFps) / thatFps - element.delay;
+						} else {
+							element.runTime = (schemaTotalFps - prevStepFps) / thatFps - element.delay;
+						}
 					}
 
 					//元素形变整体轨迹与时间无关，放到帧循环外面
@@ -321,6 +326,10 @@ var AnimatorFactory = function () {
 						schemaArr[x].push(_element);
 					}
 				});
+			};
+
+			for (var indx = steps.length - 1; indx >= 0; indx--) {
+				_loop(indx);
 			}
 			this.setAnimatArr(schemaArr);
 			this.setFirstFpsElementMap(_elements_first_fps);
