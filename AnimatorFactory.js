@@ -174,7 +174,7 @@ var AnimatorFactory = function () {
 					if (!element.runTime || element.runTime === 0) {
 						//当没有播放时长时的处理
 						if (element.isRemove) {
-							element.runTime = (totalFps - prevStepFps) / thatFps - element.delay;
+							element.runTime = totalTime - element.delay;
 						} else {
 							element.runTime = (schemaTotalFps - prevStepFps) / thatFps - element.delay;
 						}
@@ -210,6 +210,19 @@ var AnimatorFactory = function () {
 						_element.type = element.elementType;
 						_element.id = element.elementId;
 
+						if (element.elementType === 'Gif') {
+							_element.width = element.width;
+							_element.height = element.height;
+							_element.src = element.src;
+						}
+						if (element.elementType === 'TextArea') {
+							if (element.zoomWithView && element.scale) {
+								_element.scale = element.scale;
+							}
+							_element.width = element.width;
+							_element.height = element.height;
+							_element.value = element.value;
+						}
 						if (element.isChange) {
 							_element.action = 'update';
 							if (element.style) {
@@ -317,11 +330,7 @@ var AnimatorFactory = function () {
 								}
 							}
 						}
-						if (element.elementType === 'TextArea') {
-							_element.width = element.width;
-							_element.height = element.height;
-							_element.value = element.value;
-						}
+
 						_element.keyPoint = keyPointArr;
 						schemaArr[x].push(_element);
 					}
@@ -421,8 +430,8 @@ var AnimatorFactory = function () {
 		}
 
 		/**
-  	* 暂停播放
-  	*/
+  	  * 暂停播放
+  	  */
 
 	}, {
 		key: 'pause',
@@ -431,8 +440,8 @@ var AnimatorFactory = function () {
 		}
 
 		/**
-  	* 继续播放
-  	*/
+  	  * 继续播放
+  	  */
 
 	}, {
 		key: 'restart',
@@ -441,8 +450,8 @@ var AnimatorFactory = function () {
 		}
 
 		/**
-  	* 停止播放
-  	*/
+  	  * 停止播放
+  	  */
 
 	}, {
 		key: 'stop',
@@ -517,6 +526,12 @@ var AnimatorFactory = function () {
 				this.plot.plotDraw.createTextArea(element.elementType, element);
 				return;
 			}
+			if (element.elementType === 'Gif') {
+				//Gif对象的处理
+				this.plot.plotDraw.createGif(element.elementType, element);
+				return;
+			}
+			var layerName = this.plot.plotDraw.addLayer();
 			var arrow = this.plot.plotDraw.createPlot(element.elementType);
 			arrow.setPoints(element.keyPoints1);
 			// let arr = arrow.getCoordinates()
@@ -535,6 +550,7 @@ var AnimatorFactory = function () {
 					this.plot.plotDraw.feature = p;
 					this.plot.plotDraw.setStyle4Name(element.styleName);
 				}
+				p.setProperties({ layerName: this.layerName });
 			}
 		}
 
@@ -563,18 +579,38 @@ var AnimatorFactory = function () {
 			if (element.action === 'none') {
 				if (this.startFps === 0) {
 					return;
-				} else if (!this.map.getFeatureById(element.id)) {
+				} else if (!this.map.getFeatureById(element.id) && !this.map.getOverlayById(element.id)) {
 					addFlag = true;
 				}
 			}
 
 			if (element.action === 'delete') {
-				this.map.removeFeatureById(element.id);
+				if (this.map.getFeatureById(element.id)) {
+					this.map.removeFeatureById(element.id);
+				} else {
+					this.map.removeOverlayById(element.id);
+				}
 				return;
 			}
 
 			//let p = this.map.getFeatureById2LayerName(this.layer,element.id)
 			var p = this.map.getFeatureById(element.id);
+			if (element.type === 'Gif' || element.type === 'TextArea') {
+				p = this.map.getOverlayById(element.id);
+
+				if (element.action === 'add' || element.action === 'update' || addFlag) {
+					if (p) {
+						p.setPosition(element.keyPoint[0]);
+					} else {
+						p = this._getGeometry(element.type, element.keyPoint[0], element);
+					}
+
+					if (element.angle != null) {
+						p.getElement().parentNode.style.transform = "rotate(" + this.turf.radiansToDegrees(element.angle) + "deg)";
+					}
+				}
+				return;
+			}
 			var arrow = this.plot.plotDraw.createPlot(element.type);
 			if (arrow === 'TextArea') {
 				arrow = this.plot.plotDraw.createPlot('Point');
@@ -620,6 +656,8 @@ var AnimatorFactory = function () {
 	}, {
 		key: '_getGeometry',
 		value: function _getGeometry(type, arr) {
+			var element = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : null;
+
 			var p = null;
 			if (type) {
 				if (type === 'Polyline' || type === 'StraightArrow' || type === 'Curve' || type === 'FreeHandLine' || type === 'Arc') {
@@ -632,11 +670,18 @@ var AnimatorFactory = function () {
 						layerName: this.layer,
 						zoomToExtent: false
 					});
-				} else if (type === 'PlotText' || type === 'TextArea' || type === 'PlotTextBox') {
+				} else if (type === 'PlotText' || type === 'PlotTextBox') {
 					p = this.map.addPoint(arr.join(','), {
 						layerName: this.layer,
 						zoomToExtent: false
 					});
+				} else if (type === 'Gif') {
+					p = this.map.addOverlay(arr.join(','), { width: element.width, height: element.height, overlaySource: element.src }, {
+						id: element.id
+					});
+					p.setPosition(arr);
+				} else if (type === 'TextArea') {
+					p = this._creatTextArea(element);
 				} else {
 					p = this.map.addPolygon(arr.join(','), {
 						layerName: this.layer,
@@ -670,6 +715,73 @@ var AnimatorFactory = function () {
 				style.setText(this._getText(option['text']));
 			}
 			return style;
+		}
+		/**
+   * 创建文本overlay
+   * @param {*} params 
+   */
+
+	}, {
+		key: '_creatTextArea',
+		value: function _creatTextArea(params) {
+			var p = null;
+			var content = document.createElement('div');
+			content.className = 'ol-plot-text-area-content';
+			var text = document.createElement('div');
+
+			text.style.width = params['width'] + 'px';
+			text.style.height = params['height'] + 'px';
+			text.setAttribute('id', params['id']);
+			text.className = 'ol-plot-text-area';
+			text.innerHTML = params['value'];
+			text.style.transform = 'scale(' + (params['scale'] ? params['scale'] : 1) + ')';
+			content.appendChild(text);
+			p = new ol.Overlay({
+				id: params['id'],
+				element: content,
+				position: params['keyPoint'][0],
+				positioning: 'right-top' // 'center-center'
+			});
+			p = this.map.addOverlay(p);
+			if (params['style']) {
+				this._setTextAreaStyle(p, params);
+			}
+			this.map.render();
+			return p;
+		}
+
+		/**
+   * 设置样式
+   * @param params
+   */
+
+	}, {
+		key: '_setTextAreaStyle',
+		value: function _setTextAreaStyle(p, params) {
+			var style = params['style'];
+			var fill = style['fill'] ? style['fill'] : {};
+			var stroke = style['stroke'] ? style['stroke'] : {};
+			var text = style['text'] ? style['text'] : {};
+			var testStyle = {
+				backgroundColor: fill['fillColor'] ? fill['fillColor'] : '#fff',
+				borderRadius: '2px',
+				boxSizing: 'border-box',
+				border: (stroke['strokeWidth'] ? stroke['strokeWidth'] : '3') + 'px solid ' + (stroke['strokeColor'] ? stroke['strokeColor'] : 'rgba(255, 0, 0, 1)'),
+				fontFamily: text['fontFamily'] ? text['fontFamily'] : 'Microsoft Yahei',
+				color: text['textFill'] ? text['textFill']['fillColor'] ? text['textFill']['fillColor'] : 'rgba(1,5,0,1)' : 'rgba(1,5,0,1)',
+				fontSize: text['fontSize'] ? text['fontSize'] : 14,
+				fontWeight: text['fontWeight'] ? text['fontWeight'] : 400,
+				padding: '10px',
+				fontStretch: 'normal'
+			};
+			var content = p.getElement();
+			var text_ = content.firstElementChild;
+			for (var key in testStyle) {
+				if (key && testStyle[key]) {
+					text_.style[key] = testStyle[key];
+				}
+			}
+			p.setElement(content);
 		}
 
 		/**
