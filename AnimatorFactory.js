@@ -680,6 +680,7 @@ var AnimatorFactory = function () {
 						id: element.id
 					});
 					p.setPosition(arr);
+					p.getElement().parentNode.style.zIndex = 0;
 				} else if (type === 'TextArea') {
 					p = this._creatTextArea(element);
 				} else {
